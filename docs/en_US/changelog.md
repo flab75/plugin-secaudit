@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.24 (2026-10-15)
+- `remoteip` rule: reported only when Apache's remoteip module is enabled (a `remoteip.conf` left by an update with the module disabled gave a false positive).
+
 ## 0.23 (2026-10-14)
 - Generated texts are now translatable: the report (rule titles, findings, how-to-fix, severities), the intrusion attempt summary and alert, whois profiles, "what it was looking for", the widget and error messages. They follow Jeedom's language (`core/i18n/en_US.json`); the French output is unchanged ("Aucun problème grave" included).
 - `tests/selftest.php en_US`: dry run with English texts (plus a translation check).

@@ -1,7 +1,7 @@
 {
 	"id": "secaudit",
 	"name": "Audit sécurité",
-	"pluginVersion": "0.23",
+	"pluginVersion": "0.24",
 	"description": {
 		"fr_FR": "Audit de sécurité de l'installation Jeedom : rapport des points à résoudre, méthode pour chacun, correctifs proposés, base des failles connues mise à jour chaque jour (NVD).",
 		"en_US": "Security audit of the Jeedom installation: report of the issues to fix, how to fix each one, proposed fixes, known-vulnerability database updated daily (NVD)."

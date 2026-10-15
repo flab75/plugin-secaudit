@@ -98,7 +98,7 @@
       "resolution": "`sudo apt install fail2ban`, puis activer au moins les prisons sshd et apache (fichier /etc/fail2ban/jail.local)."
     },
     {
-      "id": "remoteip", "type": "shell", "cmd": "grep -ls RemoteIPHeader /etc/apache2/conf-enabled/*.conf /etc/apache2/sites-enabled/*.conf 2>/dev/null | xargs -r grep -LE 'RemoteIP(Trusted|Internal)Proxy'", "regex": "/\\S/", "gravite": "moyenne",
+      "id": "remoteip", "type": "shell", "cmd": "[ -e /etc/apache2/mods-enabled/remoteip.load ] && grep -ls RemoteIPHeader /etc/apache2/conf-enabled/*.conf /etc/apache2/sites-enabled/*.conf 2>/dev/null | xargs -r grep -LE 'RemoteIP(Trusted|Internal)Proxy'", "regex": "/\\S/", "gravite": "moyenne",
       "titre": "Apache remoteip sans proxy de confiance (IP client falsifiable)",
       "resolution": "Sans reverse proxy : `sudo a2disconf remoteip && sudo systemctl reload apache2`. Avec un proxy : ajouter `RemoteIPTrustedProxy <ip du proxy>`. Sinon un attaquant choisit son IP via X-Forwarded-For et contourne liste blanche et bannissement."
     },

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.24 (2026-10-15)
+- Règle `remoteip` : signalée seulement si le module remoteip d'Apache est activé (un `remoteip.conf` laissé par une mise à jour, module désactivé, donnait un faux positif).
+
 ## 0.23 (2026-10-14)
 - Textes générés traduisibles : rapport (titres des règles, constats, « comment résoudre », gravités), résumé et alerte des tentatives, profils whois, « ce qu'elle cherchait », widget, messages d'erreur. Ils suivent la langue de Jeedom (`core/i18n/en_US.json`) ; en français, rien ne change (« Aucun problème grave » compris).
 - `tests/selftest.php en_US` : essai à blanc avec les textes en anglais (contrôle de la traduction en plus).
