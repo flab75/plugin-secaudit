@@ -5,7 +5,7 @@ Chaque « Pourquoi » répond à un problème réel rencontré pendant la mise a
 
 ## 1. Principes
 
-- **Constater, pas agir.** L'audit lit la configuration et le système, il ne change rien. Les seules modifications sont les trois correctifs, lancés à la main par un administrateur après confirmation, avec sauvegarde de l'ancienne valeur. Pourquoi : un outil de sécurité qui modifie seul la machine peut couper l'accès (API, SSH, liste blanche) au moment où personne ne regarde.
+- **Constater, pas agir.** L'audit lit la configuration et le système, il ne change rien. Les seules modifications sont les deux correctifs, lancés à la main par un administrateur après confirmation, avec sauvegarde de l'ancienne valeur. Pourquoi : un outil de sécurité qui modifie seul la machine peut couper l'accès (API, SSH, liste blanche) au moment où personne ne regarde.
 - **Rien ne sort de la machine**, sauf trois requêtes : le téléchargement de la base des failles (NVD), la base complémentaire si vous en donnez une, et les requêtes `whois` sur les IP qui ont sondé Jeedom. Le rapport, l'historique et les listes restent en local.
 - **Réservé aux administrateurs.** La page, l'ajax et la commande « Lancer » vérifient le profil admin. Pourquoi : le rapport décrit vos failles, et sur une installation Jeedom standard un administrateur Jeedom est root sur la machine (voir la règle `sudo_www`).
 - **Une donnée venue de l'extérieur n'est jamais du code.** Ni la base téléchargée, ni les chemins demandés par les robots, ni les réponses whois ne peuvent déclencher une commande ou injecter du HTML.
@@ -20,7 +20,7 @@ La classe `secaudit` (fichier `core/class/secaudit.class.php`) porte l'équipeme
 | `secaudit_regles` | lit les règles (locales et téléchargées), filtre la base distante, évalue une règle |
 | `secaudit_tests` | tests intégrés (type `builtin`) : chacun renvoie [problème ?, détail] |
 | `secaudit_base` | télécharge les failles connues (NVD) et la base complémentaire |
-| `secaudit_correctifs` | les trois correctifs et la sauvegarde des anciennes valeurs |
+| `secaudit_correctifs` | les deux correctifs et la sauvegarde des anciennes valeurs |
 | `secaudit_journal` | lit `log/http.error` et devine l'objectif de chaque essai |
 | `secaudit_historique` | garde les essais par IP sur 30 jours |
 | `secaudit_whois` | propriétaire d'une IP et profil deviné |
@@ -116,13 +116,12 @@ Limite : seule la borne haute des versions est lue. Une vieille faille peut donc
 
 ## 6. Les correctifs
 
-Le bouton « Corriger » n'existe que pour trois règles, avec un correctif écrit dans le plugin. Il est lu **uniquement dans la base locale** : la base téléchargée ne peut pas en ajouter. Une confirmation est toujours demandée, avec un avertissement propre à la règle.
+Le bouton « Corriger » n'existe que pour deux règles, avec un correctif écrit dans le plugin. Il est lu **uniquement dans la base locale** : la base téléchargée ne peut pas en ajouter. Une confirmation est toujours demandée, avec un avertissement propre à la règle.
 
 | Correctif | Ce qu'il fait | Pourquoi ces précautions |
 |---|---|---|
 | `api_whiteip` | passe **l'API de la règle cliquée** en « IP blanche » | seulement celle-là, car l'avertissement affiché ne parlait que d'elle. Refusé si la liste blanche Jeedom ne couvre pas 127.0.0.1 : sinon les plugins locaux (Homebridge…) perdraient l'API. La vérification utilise `netMatch`, la fonction de Jeedom elle-même |
 | `whiteips` | retire de la liste blanche Jeedom les entrées trop larges ou illisibles, garde les autres, ajoute 127.0.0.1 et votre sous-réseau local | même lecture que la règle `whiteips_large`, pour que le correctif retire exactement ce que la règle signale |
-| `fichiers_publics` | déplace les fichiers exposés de `data/` vers `/var/backups/jeedom_web_data/<date>/` | déplacés et non supprimés : ce sont souvent des sauvegardes ; un échec partiel est signalé fichier par fichier |
 
 Avant chaque correctif, l'ancienne valeur est écrite dans `data/sauvegardes.json` (fichier verrouillé pendant l'écriture) **et** dans le log `secaudit`. Pourquoi les deux : le fichier est dans le dossier du plugin et disparaît s'il est réinstallé, le log reste. L'audit est relancé juste après pour montrer le résultat.
 

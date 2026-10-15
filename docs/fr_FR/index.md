@@ -57,7 +57,6 @@ Le bouton **Corriger** apparaît seulement pour les correctifs écrits dans le p
 |---|---|
 | `api_whiteip` | L'API de la règle (HTTP, JSON-RPC ou TTS) passe en mode « IP blanche ». Refusé si aucune entrée de la liste blanche ne couvre 127.0.0.1 (127.0.0.1, 127.0.0.0/8, 127.*.*.* ; lu par `netMatch` de Jeedom, pour qui `127.*` ne couvre pas 127.0.0.1). |
 | `whiteips` | Retire de la liste blanche les entrées plus larges qu'un /24 ou illisibles (`192.168.1.01-…`, tabulation au milieu : `netMatch` ferait partir la plage de 0.0.0.0) (et tout réseau IPv6 : `netMatch` de Jeedom prend une étoile ou une plage IPv6 pour tout l'IPv6, et plante sur un préfixe > 32), garde les autres, ajoute `127.0.0.1` et `<sous-réseau local>.*`. |
-| `fichiers_publics` | Les .js, .css, .html et .txt à la racine de `data/` sont déplacés vers `/var/backups/jeedom_web_data/<date>/`. |
 
 Les autres points (SSH, MariaDB, Z-Wave JS UI…) touchent au système : la résolution les décrit, à faire à la main.
 
@@ -87,6 +86,27 @@ Le journal ne contient que les échecs : une tentative réussie n'y apparaîtrai
 Limite : Apache n'écrit les fichiers absents (hors PHP) qu'en `LogLevel info` ; au niveau `warn` par défaut, seuls les refus et les scripts PHP absents sont dans `http.error`.
 
 Nécessite `sudo` sans mot de passe pour www-data (installation Jeedom standard) et la commande `whois` (installée par les dépendances du plugin).
+
+## Données et confidentialité
+Le plugin ne collecte rien pour son auteur et n'envoie aucune statistique.
+
+**Ce qui sort de la machine :**
+- Les **adresses IP publiques** qui ont sondé Jeedom ou ont été bannies, envoyées aux serveurs `whois` des registres d'adresses (RIPE, ARIN…) par le cron horaire, au plus une fois par IP tous les 30 jours. Une IP de votre liste blanche qui apparaît dans le journal est envoyée aussi ; les adresses locales et Tailscale jamais.
+- Une requête à la **NVD** (NIST, `services.nvd.nist.gov`) chaque nuit, avec le seul mot-clé `jeedom`.
+- Une requête à la **base complémentaire**, seulement si vous en indiquez l'URL. Son serveur voit l'adresse IP publique de votre box.
+
+**Ce qui est gardé sur la machine :**
+
+| Donnée | Où | Durée |
+|---|---|---|
+| Essais par IP (date, chemins demandés) | `data/historique.json` | 30 jours après le dernier essai |
+| Propriétaire de chaque IP (whois) | configuration du plugin | 30 jours, 300 IP au plus |
+| Bans vus | configuration du plugin | 30 heures (7 jours si fail2ban ne répond plus) |
+| Chemins visés par les robots (sans IP) | configuration du plugin | 1000 chemins au plus ; scripts absents : 90 jours |
+| Anciennes valeurs avant un correctif (liste blanche Jeedom…) | `data/sauvegardes.json` et log `secaudit` | jusqu'à réinstallation / rotation des logs |
+| Rapport, listes blanche et noire | configuration du plugin | jusqu'à la désinstallation |
+
+La désinstallation efface la configuration du plugin ; ses fichiers `data/` partent avec son dossier.
 
 ## Plateforme
 La première ligne du rapport indique sur quoi tourne Jeedom (VM, Raspberry Pi, Docker ou machine physique), avec l'OS et les versions. Sur une VM, la sécurité dépend aussi de l'hôte, que le plugin ne voit pas.

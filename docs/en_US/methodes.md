@@ -5,7 +5,7 @@ Each "Why" answers a real problem met during development, most of the time raise
 
 ## 1. Principles
 
-- **Report, do not act.** The audit reads the configuration and the system, it changes nothing. The only changes are the three fixes, started by hand by an administrator after confirmation, with a backup of the old value. Why: a security tool that changes the machine on its own can cut off access (API, SSH, whitelist) at a moment when nobody is watching.
+- **Report, do not act.** The audit reads the configuration and the system, it changes nothing. The only changes are the two fixes, started by hand by an administrator after confirmation, with a backup of the old value. Why: a security tool that changes the machine on its own can cut off access (API, SSH, whitelist) at a moment when nobody is watching.
 - **Nothing leaves the machine**, except three requests: downloading the vulnerability database (NVD), the additional database if you provide one, and `whois` requests on the IPs that probed Jeedom. The report, the history and the lists stay local.
 - **Administrators only.** The page, the ajax and the "Run" (« Lancer ») command check the admin profile. Why: the report describes your weaknesses, and on a standard Jeedom installation a Jeedom administrator is root on the machine (see the `sudo_www` rule).
 - **Data coming from outside is never code.** Neither the downloaded database, nor the paths requested by bots, nor the whois answers can trigger a command or inject HTML.
@@ -20,7 +20,7 @@ The `secaudit` class (file `core/class/secaudit.class.php`) holds the equipment,
 | `secaudit_regles` | reads the rules (local and downloaded), filters the remote database, evaluates a rule |
 | `secaudit_tests` | built-in tests (type `builtin`): each returns [problem?, detail] |
 | `secaudit_base` | downloads the known vulnerabilities (NVD) and the additional database |
-| `secaudit_correctifs` | the three fixes and the backup of the old values |
+| `secaudit_correctifs` | the two fixes and the backup of the old values |
 | `secaudit_journal` | reads `log/http.error` and guesses the goal of each attempt |
 | `secaudit_historique` | keeps the attempts per IP over 30 days |
 | `secaudit_whois` | owner of an IP and guessed profile |
@@ -116,13 +116,12 @@ Limit: only the upper bound of the versions is read. An old vulnerability can th
 
 ## 6. The fixes
 
-The "Fix" button exists only for three rules, with a fix written in the plugin. It is read **only from the local database**: the downloaded database cannot add any. A confirmation is always requested, with a warning specific to the rule.
+The "Fix" button exists only for two rules, with a fix written in the plugin. It is read **only from the local database**: the downloaded database cannot add any. A confirmation is always requested, with a warning specific to the rule.
 
 | Fix | What it does | Why these precautions |
 |---|---|---|
 | `api_whiteip` | switches **the API of the clicked rule** to "White IP" | only that one, because the warning shown only mentioned it. Refused if the Jeedom whitelist does not cover 127.0.0.1: otherwise local plugins (Homebridge…) would lose the API. The check uses `netMatch`, Jeedom's own function |
 | `whiteips` | removes from the Jeedom whitelist the entries that are too wide or unreadable, keeps the others, adds 127.0.0.1 and your local subnet | same reading as the `whiteips_large` rule, so that the fix removes exactly what the rule reports |
-| `fichiers_publics` | moves the exposed files from `data/` to `/var/backups/jeedom_web_data/<date>/` | moved, not deleted: they are often backups; a partial failure is reported file by file |
 
 Before each fix, the old value is written to `data/sauvegardes.json` (file locked during the write) **and** to the `secaudit` log. Why both: the file is in the plugin folder and disappears if the plugin is reinstalled, the log stays. The audit is rerun right after to show the result.
 

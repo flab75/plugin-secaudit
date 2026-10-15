@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.25 (2026-10-15)
+- `fichiers_publics` fix removed: the plugin no longer moves files outside its own folder (Jeedom market rule). The item is still reported, the resolution says what to do by hand.
+- Docs: "Data and privacy" section (what leaves the machine, what is kept and for how long).
+
 ## 0.24 (2026-10-15)
 - `remoteip` rule: reported only when Apache's remoteip module is enabled (a `remoteip.conf` left by an update with the module disabled gave a false positive).
 

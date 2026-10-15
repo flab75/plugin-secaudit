@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.25 (2026-10-15)
+- Correctif `fichiers_publics` retiré : le plugin ne déplace plus de fichiers hors de son dossier (règle du market Jeedom). Le point reste signalé, la résolution dit quoi faire à la main.
+- Doc : section « Données et confidentialité » (ce qui sort de la machine, ce qui est gardé et combien de temps).
+
 ## 0.24 (2026-10-15)
 - Règle `remoteip` : signalée seulement si le module remoteip d'Apache est activé (un `remoteip.conf` laissé par une mise à jour, module désactivé, donnait un faux positif).
 

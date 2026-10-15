@@ -118,8 +118,7 @@
 	"plugins/secaudit/core/class/secaudit_correctifs.class.php": {
 		"Pas de correctif pour %s": "No fix available for %s",
 		"Ajoutez d'abord 127.0.0.1 à la liste blanche (Réglages › Système › Configuration › Réseaux)": "Add 127.0.0.1 to the whitelist first (Settings › System › Configuration › Networks)",
-		"adresse interne illisible : %s": "cannot read the internal address: %s",
-		"%s déplacé(s), %s non déplacé(s) (%s) : %s": "%s moved, %s could not be moved (%s): %s"
+		"adresse interne illisible : %s": "cannot read the internal address: %s"
 	},
 	"plugins/secaudit/core/class/secaudit_bans.class.php": {
 		"jamais": "never",

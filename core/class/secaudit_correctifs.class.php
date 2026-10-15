@@ -1,8 +1,6 @@
 <?php
 /* Correctifs (locaux, sur clic) : l'ancienne valeur est gardée dans data/sauvegardes.json. */
 class secaudit_correctifs {
-  const ARCHIVE = '/var/backups/jeedom_web_data';
-
   public static function corriger($id) {
     $c = array_column(secaudit_regles::lireJson(secaudit_regles::LOCALES)['checks'], null, 'id')[$id] ?? null; // jamais depuis la base distante
     $m = 'fix_' . ($c['fix'] ?? '');
@@ -11,11 +9,6 @@ class secaudit_correctifs {
     log::add('secaudit', 'info', "Correctif $id : $detail");
     secaudit::run();
     return $detail;
-  }
-
-  private static function fichiersRestants($f) {
-    clearstatcache();
-    return array_values(array_filter($f, 'file_exists'));
   }
 
   private static function sauvegarder($quoi, $valeur) {
@@ -55,17 +48,5 @@ class secaudit_correctifs {
     $v = implode(';', array_unique(array_merge(['127.0.0.1', $m[1] . '.*'], $l)));
     config::save('security::whiteips', $v);
     return "liste blanche = $v (avant : $avant)";
-  }
-
-  private static function fix_fichiers_publics($c) {
-    $f = secaudit_tests::fichiersPublics();
-    if (!$f) return 'rien à déplacer';
-    $dest = self::ARCHIVE . '/' . date('Ymd_His');
-    $r = trim((string)shell_exec('sudo -n mkdir -p ' . escapeshellarg($dest) . ' && sudo -n mv ' . implode(' ', array_map('escapeshellarg', $f)) . ' ' . escapeshellarg($dest) . ' 2>&1'));
-    $reste = self::fichiersRestants($f);
-    $faits = array_diff($f, $reste);
-    if ($faits) self::sauvegarder('fichiers_publics', array_map('basename', $faits));
-    if ($reste) throw new Exception(sprintf(__('%s déplacé(s), %s non déplacé(s) (%s) : %s', __FILE__), count($faits), count($reste), implode(', ', array_map('basename', $reste)), $r));
-    return count($f) . " fichier(s) déplacé(s) vers $dest";
   }
 }

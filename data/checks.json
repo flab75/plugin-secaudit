@@ -63,7 +63,7 @@
       "resolution": "En SSH : `sudo apt update && sudo apt upgrade`. Pour automatiser : `sudo apt install unattended-upgrades` (sécurité seulement par défaut)."
     },
     {
-      "id": "fichiers_publics", "type": "builtin", "test": "fichiers_publics", "gravite": "moyenne", "fix": "fichiers_publics",
+      "id": "fichiers_publics", "type": "builtin", "test": "fichiers_publics", "gravite": "moyenne",
       "titre": "Fichiers lisibles sans connexion dans data/",
       "resolution": "Dans /var/www/html/data/, les fichiers .js, .css, .html, .txt sont servis sans authentification (sauvegardes, exports…). Les déplacer hors du site web ou les renommer en .json (refusé par Apache)."
     },

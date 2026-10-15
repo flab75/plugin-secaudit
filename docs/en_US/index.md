@@ -59,7 +59,6 @@ The **Fix** button only appears for fixes written in the plugin. A confirmation 
 |---|---|
 | `api_whiteip` | The rule's API (HTTP, JSON-RPC or TTS) switches to "White IP" (« IP blanche ») mode. Refused if no whitelist entry covers 127.0.0.1 (127.0.0.1, 127.0.0.0/8, 127.*.*.*; read by Jeedom's `netMatch`, for which `127.*` does not cover 127.0.0.1). |
 | `whiteips` | Removes from the whitelist the entries wider than a /24 or unreadable (`192.168.1.01-…`, a tab in the middle: `netMatch` would make the range start at 0.0.0.0) (and any IPv6 network: Jeedom's `netMatch` takes a star or an IPv6 range for all of IPv6, and crashes on a prefix > 32), keeps the others, adds `127.0.0.1` and `<local subnet>.*`. |
-| `fichiers_publics` | The .js, .css, .html and .txt files at the root of `data/` are moved to `/var/backups/jeedom_web_data/<date>/`. |
 
 The other items (SSH, MariaDB, Z-Wave JS UI…) affect the system: the fix describes them, to be done by hand.
 
@@ -89,6 +88,27 @@ The log only contains failures: a successful attempt would not appear in it, tha
 Limit: Apache only logs missing files (other than PHP) at `LogLevel info`; at the default `warn` level, only refusals and missing PHP scripts are in `http.error`.
 
 Requires passwordless `sudo` for www-data (standard Jeedom installation) and the `whois` command (installed by the plugin dependencies).
+
+## Data and privacy
+The plugin collects nothing for its author and sends no statistics.
+
+**What leaves the machine:**
+- The **public IP addresses** that probed Jeedom or were banned, sent to the `whois` servers of the address registries (RIPE, ARIN…) by the hourly cron, at most once per IP every 30 days. An IP from your whitelist that shows up in the log is sent too; local and Tailscale addresses never are.
+- A request to the **NVD** (NIST, `services.nvd.nist.gov`) every night, with the keyword `jeedom` only.
+- A request to the **additional database**, only if you provide its URL. Its server sees your router's public IP address.
+
+**What is kept on the machine:**
+
+| Data | Where | How long |
+|---|---|---|
+| Attempts per IP (date, requested paths) | `data/historique.json` | 30 days after the last attempt |
+| Owner of each IP (whois) | plugin configuration | 30 days, 300 IPs at most |
+| Bans seen | plugin configuration | 30 hours (7 days if fail2ban stops answering) |
+| Paths targeted by bots (no IP) | plugin configuration | 1000 paths at most; missing scripts: 90 days |
+| Old values before a fix (Jeedom whitelist…) | `data/sauvegardes.json` and `secaudit` log | until reinstall / log rotation |
+| Report, whitelist and blacklist | plugin configuration | until uninstall |
+
+Uninstalling removes the plugin configuration; its `data/` files go with its folder.
 
 ## Platform
 The first line of the report states what Jeedom runs on (VM, Raspberry Pi, Docker or physical machine), with the OS and the versions. On a VM, security also depends on the host, which the plugin cannot see.
