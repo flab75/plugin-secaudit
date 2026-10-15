@@ -16,7 +16,7 @@ $etat = ['probleme' => '<i class="fas fa-times-circle" style="color:#d9534f"></i
     <a class="btn btn-default" id="secauditDoc"><i class="fas fa-book"></i> {{Documentation}}</a>
     <br/><br/>
     <?php // Assistant : ouvert seul à la première visite après l'installation ou la mise à jour 0.19 (clé « assistant » absente), puis par le bouton. Questions = réglages de la configuration
-    $ports = secaudit_tests::test_ports_ouverts()[1];
+    $ports = secaudit_tests::portsOuverts();
     $ip = getClientIp(); ?>
     <div id="secauditAssistant" class="panel panel-primary"<?php if (config::byKey('assistant', 'secaudit', 0) == 1) echo ' style="display:none"'; ?>>
       <div class="panel-heading"><i class="fas fa-magic"></i> {{Assistant de préconfiguration}}</div>
@@ -32,8 +32,8 @@ $etat = ['probleme' => '<i class="fas fa-times-circle" style="color:#d9534f"></i
             <a class="btn btn-xs btn-default" onclick="var t=this.parentNode.querySelector('textarea');t.value=(t.value.trim()?t.value.trim()+'\n':'')+'<?php echo $ip; ?>  # {{ajoutée par l\'assistant}}'">{{Ajouter mon adresse actuelle}} (<?php echo $ip; ?>)</a>
             <?php } ?></div></div>
         <div class="form-group"><label class="col-md-4 control-label">{{3. Ces services ouverts au réseau sont-ils voulus et protégés par un mot de passe ?}}</label>
-          <div class="col-md-6"><?php if ($ports === '') echo '{{Aucun service inattendu.}}';
-            foreach (array_filter(explode(', ', $ports)) as $p) echo '<label class="checkbox-inline"><input type="checkbox" data-port="' . (int)$p . '"/> ' . htmlspecialchars($p) . '</label> '; ?>
+          <div class="col-md-6"><?php if (!$ports) echo '{{Aucun service inattendu.}}';
+            foreach ($ports as $p => $procs) echo '<label class="checkbox-inline"><input type="checkbox" data-port="' . (int)$p . '"/> ' . htmlspecialchars(trim("$p " . implode('/', $procs))) . '</label> '; ?>
             <br/><small>{{Cochés : plus signalés. Les autres restent dans l'audit.}}</small></div></div>
         <div class="form-group"><label class="col-md-4 control-label">{{4. Avez-vous vérifié les redirections de ports de votre box ?}}</label>
           <div class="col-md-6"><label class="checkbox-inline"><input type="checkbox" data-k="box_ok"<?php if (config::byKey('box_ok', 'secaudit', 0) == 1) echo ' checked'; ?>/> {{Oui : seul le 443 (et le 80) va vers Jeedom}}</label></div></div>

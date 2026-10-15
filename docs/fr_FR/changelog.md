@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.26 (2026-10-15)
+Diagnostics affinés à partir de cas réels (Homebridge refusé par l'API, conteneur Signal ouvert au réseau, MariaDB de Debian 12) :
+- `ssh_password` : le constat dit combien de clés SSH sont installées et qui se connecte encore par mot de passe (30 j) ; la résolution prévient qu'il ne faut pas couper sans clé.
+- `mysql_ecoute` : détecte le port ouvert par `mariadb.socket` (systemd, Debian 12), où `bind-address` est ignoré ; la résolution dit de désactiver le socket.
+- `zwavejs_ui` : signalé seulement si l'API répond sans authentification ou si rien ne permet de le vérifier (un 8091 ouvert mais protégé n'est plus un problème).
+- `ports_ouverts` : nomme le conteneur Docker et son équipement Docker management, dit si le port répond sans mot de passe ; la résolution explique `127.0.0.1:PORT` dans Docker management (et qu'un plugin peut le réécrire). L'assistant liste les ports sans les sonder.
+- `api_refus` : nomme le client refusé (plugin, adresse), le nombre de refus et à qui appartient la clé (compte désactivé…), jamais la clé ; un client réparé sort du constat aussitôt. Résolution : redémarrer le démon du plugin quand sa clé est celle d'un compte désactivé.
+- `ss` sans sudo : les ports restent vus, mais sans les noms de processus : un nom mis dans « Ports acceptés » (homebridge) ne filtre plus rien, le constat le dit.
+- Revue adverse : `api_refus` compte par adresse (un nom de plugin changé à chaque essai ne passe plus sous le seuil) et signale 10 refus venus d'Internet en 24 h ; un refus par requête ; lignes de refus sans horodatage strict ignorées. `ports_ouverts` ne sonde plus que Docker et les serveurs web connus (pas un pont série ni le socket d'un démon), « page web servie » au lieu de « sans mot de passe » sur `/`, plages de ports Docker lues. `ssh_password` teste aussi `KbdInteractiveAuthentication`, lit le journal `sshd` et date sa plus vieille ligne ; résolution dans `sshd_config.d`. `mysql_ecoute` : résolution simplifiée (désactiver `mariadb.socket`), « processus inconnu » sans sudo.
+- Revue adverse (2e tour) : `api_refus` garde les refus d'une requête sur plusieurs lignes (entrée à part, 20 refus en 24 h signalés même sans adresse), ne remet plus le compteur à zéro sur une autre erreur, exclut 100.64.0.0/10 (Tailscale) des refus d'Internet, signale des « adresses falsifiables » si `entetes_ip` est en défaut. `ports_ouverts` : chaque port d'une plage Docker, conteneur sondé seulement si son image est connue ou son port interne web, code HTTP affiché quand ce n'est ni 2xx ni 401/403, `docker ps` limité à 10 s. `ssh_password` : clés comptées par compte, journal `sshd-session` (OpenSSH 9.8+), `journalctl` limité à 10 s.
+- Revue adverse (3e tour) : refus sans requête lisible comptés seulement sur 24 h (plus de faux positif durable), rattachement par IP plus solide face aux lignes forgées, « adresses falsifiables » aussi pour `remoteip`, `zwavejs_ui` dit « authentification désactivée », `ssh_password` signale un journal coupé par le délai et lit les clés sans saut de ligne final.
+
 ## 0.25 (2026-10-15)
 - Correctif `fichiers_publics` retiré : le plugin ne déplace plus de fichiers hors de son dossier (règle du market Jeedom). Le point reste signalé, la résolution dit quoi faire à la main.
 - Doc : section « Données et confidentialité » (ce qui sort de la machine, ce qui est gardé et combien de temps).

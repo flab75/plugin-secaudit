@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.26 (2026-10-15)
+Diagnostics refined from real cases (Homebridge refused by the API, Signal container open to the network, Debian 12 MariaDB):
+- `ssh_password`: the finding says how many SSH keys are installed and who still logs in with a password (30 days); the fix warns not to turn passwords off without a key.
+- `mysql_ecoute`: detects the port opened by `mariadb.socket` (systemd, Debian 12), where `bind-address` is ignored; the fix says to disable the socket.
+- `zwavejs_ui`: reported only if the API answers without authentication or nothing allows checking it (an open but protected 8091 is no longer a problem).
+- `ports_ouverts`: names the Docker container and its Docker management equipment, says whether the port answers without a password; the fix explains `127.0.0.1:PORT` in Docker management (and that a plugin may rewrite it). The wizard lists the ports without probing them.
+- `api_refus`: names the refused client (plugin, address), the number of refusals and who owns the key (disabled account…), never the key; a fixed client leaves the finding at once. Fix: restart the plugin daemon when its key belongs to a disabled account.
+- `ss` without sudo: ports are still seen, but without process names: a name in "Accepted ports" (homebridge) no longer filters anything, the finding says so.
+- Adversarial review: `api_refus` counts per address (a plugin name changed at each try no longer gets under the threshold) and reports 10 refusals from the Internet in 24 h; one refusal per request; refusal lines without a strict timestamp ignored. `ports_ouverts` now probes only Docker and known web servers (not a serial bridge or a daemon socket), "web page served" instead of "without a password" on `/`, Docker port ranges read. `ssh_password` also tests `KbdInteractiveAuthentication`, reads the `sshd` journal and dates its oldest line; fix in `sshd_config.d`. `mysql_ecoute`: simpler fix (disable `mariadb.socket`), "unknown process" without sudo.
+- Adversarial review (round 2): `api_refus` keeps the refusals of a request spread over several lines (separate entry, 20 refusals in 24 h reported even without an address), no longer resets the counter on another error, leaves 100.64.0.0/10 (Tailscale) out of Internet refusals, reports "forgeable addresses" when `entetes_ip` fails. `ports_ouverts`: each port of a Docker range, container probed only if its image is known or its internal port is a web port, HTTP code shown when neither 2xx nor 401/403, `docker ps` capped at 10 s. `ssh_password`: keys counted per account, `sshd-session` journal (OpenSSH 9.8+), `journalctl` capped at 10 s.
+- Adversarial review (round 3): refusals with no readable request counted only over 24 h (no more lasting false positive), address attribution sturdier against forged lines, "forgeable addresses" also for `remoteip`, `zwavejs_ui` says "authentication disabled", `ssh_password` reports a journal cut by the timeout and reads keys without a final newline.
+
 ## 0.25 (2026-10-15)
 - `fichiers_publics` fix removed: the plugin no longer moves files outside its own folder (Jeedom market rule). The item is still reported, the resolution says what to do by hand.
 - Docs: "Data and privacy" section (what leaves the machine, what is kept and for how long).

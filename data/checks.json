@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-13",
+  "version": "2026-10-15",
   "_doc": "Règles d'audit. type : config (clé Jeedom), core_version, (règles aussi acceptées depuis la base téléchargée), shell et builtin (locales seulement). Un test vaut « problème » quand sa condition est vraie. gravite : critique, haute, moyenne, info (info ne baisse pas le score). fix : nom d'un correctif local (méthode fix_<nom> de secaudit_correctifs, reçoit la règle).",
   "checks": [
     {
@@ -83,9 +83,9 @@
       "resolution": "Dans /etc/ssh/sshd_config : `PermitRootLogin prohibit-password` (ou no), puis `sudo systemctl reload ssh`."
     },
     {
-      "id": "ssh_password", "type": "shell", "cmd": "sudo -n sshd -T 2>/dev/null", "regex": "/^passwordauthentication yes$/m", "gravite": "moyenne",
+      "id": "ssh_password", "type": "builtin", "test": "ssh_password", "gravite": "moyenne",
       "titre": "SSH accepte les mots de passe",
-      "resolution": "1) Depuis l'ordinateur : `ssh-copy-id utilisateur@ip-jeedom`, vérifier que la connexion par clé marche. 2) Dans /etc/ssh/sshd_config : `PasswordAuthentication no`, puis `sudo systemctl reload ssh`. Garder une session ouverte pendant le test."
+      "resolution": "1) S'il n'y a aucune clé (voir le constat) : depuis l'ordinateur, `ssh-keygen -t ed25519` puis `ssh-copy-id utilisateur@ip-jeedom`, et vérifier qu'une nouvelle connexion n'a plus demandé le mot de passe. 2) Seulement ensuite, créer /etc/ssh/sshd_config.d/00-secaudit.conf avec `PasswordAuthentication no` et `KbdInteractiveAuthentication no` (un fichier de ce dossier l'emporte sur sshd_config : la première valeur lue gagne), puis `sudo sshd -t && sudo systemctl reload ssh`, et vérifier avec `sudo sshd -T | grep -i authentication`. Garder une session ouverte pendant le test. Chaque utilisateur et chaque machine listés dans le constat doivent avoir leur clé, sinon ils perdent l'accès. Si la date « depuis le » est récente, le journal est effacé au redémarrage : des connexions plus anciennes ont pu échapper au constat."
     },
     {
       "id": "ssh_x11", "type": "shell", "cmd": "sudo -n sshd -T 2>/dev/null", "regex": "/^x11forwarding yes$/m", "gravite": "info",
@@ -103,24 +103,24 @@
       "resolution": "Sans reverse proxy : `sudo a2disconf remoteip && sudo systemctl reload apache2`. Avec un proxy : ajouter `RemoteIPTrustedProxy <ip du proxy>`. Sinon un attaquant choisit son IP via X-Forwarded-For et contourne liste blanche et bannissement."
     },
     {
-      "id": "mysql_ecoute", "type": "shell", "cmd": "sudo -n ss -tlnH 2>/dev/null", "regex": "/(0\\.0\\.0\\.0|\\*|\\[::\\]):3306\\s/", "gravite": "moyenne",
+      "id": "mysql_ecoute", "type": "builtin", "test": "mysql_ecoute", "gravite": "moyenne",
       "titre": "MariaDB écoute sur toutes les interfaces",
-      "resolution": "Jeedom n'utilise la base qu'en local. Dans /etc/mysql/mariadb.conf.d/50-server.cnf (et vérifier qu'aucun autre fichier ne l'écrase : `grep -r bind-address /etc/mysql/`) : `bind-address = 127.0.0.1`, puis `sudo systemctl restart mariadb`."
+      "resolution": "Jeedom n'utilise la base qu'en local. Dans tous les cas : `bind-address = 127.0.0.1` dans /etc/mysql/mariadb.conf.d/50-server.cnf (vérifier qu'aucun autre fichier ne l'écrase : `grep -r bind-address /etc/mysql/`), puis `sudo systemctl restart mariadb`. Si le constat dit « mariadb.socket » (Debian 12), c'est systemd qui ouvre le port et bind-address n'y peut rien : avant le redémarrage, `sudo systemctl disable --now mariadb.socket` ; ensuite vérifier que `systemctl is-active mariadb` et `systemctl is-enabled mariadb` répondent active / enabled et que Jeedom répond (retour arrière : `sudo systemctl enable --now mariadb.socket`). « processus inconnu » : le plugin n'a pas sudo, regarder avec `sudo ss -tlnp | grep 3306`."
     },
     {
-      "id": "zwavejs_ui", "type": "shell", "cmd": "sudo -n ss -tlnH 2>/dev/null", "regex": "/(0\\.0\\.0\\.0|\\*|\\[::\\]):8091\\s/", "gravite": "moyenne",
-      "titre": "Z-Wave JS UI (port 8091) accessible depuis le réseau local",
-      "resolution": "L'interface Z-Wave JS UI donne le contrôle complet du réseau Z-Wave (exclusion, reset). Activer son authentification (Settings › General › Auth) ou la limiter à 127.0.0.1. Ne jamais rediriger ce port sur la box."
+      "id": "zwavejs_ui", "type": "builtin", "test": "zwavejs_ui", "gravite": "moyenne",
+      "titre": "Z-Wave JS UI (port 8091) ouvert sans authentification ou non vérifiable",
+      "resolution": "L'interface Z-Wave JS UI donne le contrôle complet du réseau Z-Wave (exclusion, reset). Activer son authentification (Settings › General › Auth, puis changer le mot de passe par défaut « zwave » du compte admin) ou la limiter à 127.0.0.1. Ne jamais rediriger ce port sur la box."
     },
     {
       "id": "ports_ouverts", "type": "builtin", "test": "ports_ouverts", "gravite": "moyenne",
       "titre": "Services ouverts à tout le réseau local",
-      "resolution": "Pour chaque port listé : vérifier que le service a un mot de passe, sinon le limiter à 127.0.0.1 dans sa configuration (Docker : `-p 127.0.0.1:PORT:PORT`). Un port voulu et protégé s'ajoute à « Ports acceptés » dans la configuration du plugin. Ne jamais les rediriger sur la box."
+      "resolution": "Pour chaque port listé : « répond sans mot de passe » = n'importe quel appareil du réseau s'en sert (un conteneur Signal envoie des messages, par exemple) ; « page web servie » = ouvrir http://ip-jeedom:PORT et regarder si un mot de passe est demandé ; « (HTTP code) » : autre réponse, à ouvrir de même ; sans mention : port non sondé (service qui n'est pas un serveur web connu) ou pas du HTTP. Si seul Jeedom l'utilise, le limiter à 127.0.0.1. Conteneur créé par Docker management (ou par un plugin à travers lui) : dans l'équipement, `ports:` → `\"127.0.0.1:PORT:PORT_INTERNE\"` puis Recréer ; un plugin qui réinstalle ses dépendances peut le réécrire, revérifier après. Docker seul : `-p 127.0.0.1:PORT:PORT`. Autre service : son adresse d'écoute dans sa configuration, ou un mot de passe. Un port voulu et protégé s'ajoute à « Ports acceptés » dans la configuration du plugin. Ne jamais les rediriger sur la box."
     },
     {
-      "id": "api_refus", "type": "shell", "cmd": "tail -c 20000 /var/www/html/log/api 2>/dev/null | grep -c 'Error code 2'", "regex": "/^[1-9]/", "gravite": "moyenne",
+      "id": "api_refus", "type": "builtin", "test": "api_refus", "gravite": "moyenne",
       "titre": "Appels à l'API Jeedom refusés en boucle",
-      "resolution": "Analyse › Logs › api : repérer le client refusé (Homebridge, application…). Lui redonner une clé API valide, ou mettre son adresse dans la liste blanche si l'API est en mode « IP blanche »."
+      "resolution": "Le constat nomme l'adresse, ses clients (plugin) et à qui appartient la clé refusée. « clé du compte désactivé » : souvent le démon d'un plugin qui a gardé la clé d'un admin désactivé depuis (Homebridge…). Redémarrer ce démon (page du plugin › Démon) : il régénère sa configuration avec un admin actif. « clé inconnue » : clé régénérée ou application mal configurée, lui redonner une clé valide ; si l'adresse est extérieure, c'est un essai de clés. « clé valide » : l'API est en mode « IP blanche » ou la clé n'a pas ce droit, mettre l'adresse dans la liste blanche. « refus depuis Internet » : des clés sont essayées de l'extérieur (plusieurs adresses ou noms changeants) ; n'ouvrir l'API qu'aux adresses connues (liste blanche) et ne pas la rediriger sur la box. « attribution par adresse non garantie » : beaucoup de refus que le journal ne rattache à aucune adresse, lire le journal api. « adresses falsifiables » : la règle sur les en-têtes X-Forwarded-For est en défaut, les adresses du constat peuvent être fausses."
     },
     {
       "id": "mqtt_anonyme", "type": "shell", "cmd": "sudo -n grep -rhs allow_anonymous /etc/mosquitto /var/www/html/plugins/mqtt2/data 2>/dev/null", "regex": "/^\\s*allow_anonymous\\s+true/m", "gravite": "haute",

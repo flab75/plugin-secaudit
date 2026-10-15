@@ -44,6 +44,47 @@ $e = null; try { secaudit_bans::debannir('fail2ban', 'sshd', '1.2.3.4; reboot');
 $ok($e !== null, 'IP non validée');
 $ok(secaudit_bans::lireIgnoreip("These IP addresses/networks are ignored:\n|- 127.0.0.0/8\n|- 192.168.1.0/24\n`- ::1\n") == '127.0.0.0/8 192.168.1.0/24 ::1', 'lecture ignoreip');
 echo "bannissements OK\n";
+$e = secaudit_tests::ecoutes("LISTEN 0 4096 *:3306 *:* users:((\"mariadbd\",pid=816,fd=5),(\"systemd\",pid=1,fd=73))\nLISTEN 0 4096 127.0.0.1:8099 0.0.0.0:* users:((\"docker-proxy\",pid=1,fd=8))\n"
+  . "LISTEN 0 100 0.0.0.0:8883 0.0.0.0:* users:((\"mosquitto\",pid=662,fd=6))\nLISTEN 0 100 [::]:8883 [::]:* users:((\"mosquitto\",pid=662,fd=7))\nLISTEN 0 511 *:8091 *:*");
+$ok($e == [3306 => ['mariadbd', 'systemd'], 8883 => ['mosquitto'], 8091 => []], 'lecture de ss');
+$ok(secaudit_tests::conteneurs("signal|bbernhard/signal-cli-rest-api:0.81|0.0.0.0:8099->8080/tcp, :::8099->8080/tcp\nlocal|x|127.0.0.1:9000->9000/tcp\nsans|y|\nplage|z|0.0.0.0:8000-8002->9000-9002/tcp")
+  == [8099 => ['nom' => 'signal', 'image' => 'bbernhard/signal-cli-rest-api:0.81', 'interne' => 8080], 9000 => ['nom' => 'local', 'image' => 'x', 'interne' => 9000],
+      8000 => ['nom' => 'plage', 'image' => 'z', 'interne' => 9000], 8001 => ['nom' => 'plage', 'image' => 'z', 'interne' => 9001], 8002 => ['nom' => 'plage', 'image' => 'z', 'interne' => 9002]], 'lecture de docker ps');
+$ok(secaudit_tests::clesSsh("== /root/.ssh/authorized_keys\nssh-ed25519 AAAA x\n# commentaire\n\n== /home/m1/.ssh/authorized_keys\nssh-rsa AAAA a\nssh-rsa AAAA b\n== /home/vide/.ssh/authorized_keys")
+  == ['root' => 1, 'm1' => 2], 'clés SSH par compte');
+$ok(secaudit_tests::connexionsMdp("sshd[1]: Accepted password for m1 from 192.168.1.200 port 1 ssh2\nsshd[2]: Accepted publickey for m1 from 192.168.1.9 port 2 ssh2\nsshd[3]: Accepted password for m1 from 192.168.1.200 port 3 ssh2\nsshd[4]: Failed password for root from 1.2.3.4 port 4 ssh2")
+  == ['m1' => ['192.168.1.200']], 'connexions SSH par mot de passe');
+$q = fn($p, $id, $ip = '192.168.1.202') => "[2026-10-15 10:51:$id][INFO] { &quot;jsonrpc&quot;: &quot;2.0&quot;, &quot;id&quot;:$id, &quot;method&quot;: &quot;daemonIsReady&quot;, &quot;params&quot;:{ &quot;plugin&quot;: &quot;$p&quot;, &quot;apikey&quot;: &quot;k$p&quot;}} - IP :$ip";
+$r = "[2026-10-15 10:51:%s][INFO] Error code 2 : Vous n&apos;êtes pas autorisé à effectuer cette action";
+$rq = secaudit_tests::requetesApi(implode("\n", [$q('homebridge', 20), sprintf($r, 21), $q('z2m', 23), $q('homebridge', 24), sprintf($r, 25), $q('<b>', 26), sprintf($r, 27), $q('z2m', 28), sprintf($r, 29), $q('z2m', 30)]));
+$ok(count($rq) == 6 && $rq[0]['quand'] == '2026-10-15 10:51:21' && $rq[0]['refuse'] && !$rq[1]['refuse'] && $rq[3]['plugin'] === '' && !$rq[5]['refuse'], 'requêtes de l\'API (refus rattaché, nom filtré)');
+$c = secaudit_tests::clientsRefuses($rq, '2026-10-15 00:00:00');
+$ok(count($c['clients']) == 1 && $c['clients'][0]['nb'] == 3 && $c['clients'][0]['quand'] == '2026-10-15 10:51:27' && $c['externes'] == []
+  && $c['clients'][0]['clients'] == [['plugin' => 'homebridge', 'cle' => 'khomebridge', 'nb' => 2], ['plugin' => '', 'cle' => 'k<b>', 'nb' => 1]], 'refus regroupés par IP (z2m réparé = hors liste)');
+$c = secaudit_tests::clientsRefuses(secaudit_tests::requetesApi(implode("\n", [$q('a', 10), sprintf($r, 11), $q('a', 12), $q('a', 13), sprintf($r, 14)])), '');
+$ok($c['clients'][0]['nb'] == 1, 'refus remis à zéro par une requête acceptée');
+$e = implode("\n", [$q('a1', 10, '1.2.3.4'), sprintf($r, 11), $q('a2', 12, '1.2.3.4'), sprintf($r, 13), $q('a3', 14, '1.2.3.4'), sprintf($r, 15), $q('a3', 16, '1.2.3.4')]);
+$c = secaudit_tests::clientsRefuses(secaudit_tests::requetesApi($e), '2026-10-15 00:00:00');
+$ok($c['clients'][0]['ip'] == '1.2.3.4' && $c['clients'][0]['nb'] == 2 && $c['externes'] == ['1.2.3.4' => 3], 'nom de plugin changé à chaque essai : compté par IP et en externe');
+$ok(secaudit_tests::clientsRefuses(secaudit_tests::requetesApi($e), '2026-10-16 00:00:00')['externes'] == [], 'refus externes hors période');
+$ok(secaudit_tests::requetesApi(sprintf($r, 21))[0]['ip'] == '?', 'refus sans requête journalisée');
+$ok(secaudit_tests::requetesApi("[appelez le 06][INFO] Error code 2 : x\n[2026-10-15 10:51:2][INFO] Error code 2 : x\n[2026-10-15 10:51:20][INFO] Error code 21 : x") == [], 'refus fabriqué sans horodatage strict');
+$rq = secaudit_tests::requetesApi("[2026-10-15 10:51:20][INFO] Demande sur l'api http venant de : 192.168.1.5 => {\"x\":\" : 192.168.1.202 => {\"}");
+$ok(count($rq) == 1 && $rq[0]['ip'] == '192.168.1.5', 'IP du 2e format prise avant le JSON du client');
+// corps sur 2 lignes : le refus ne va ni à la requête précédente, ni à la poubelle ; IP de la ligne de suite
+$rq = secaudit_tests::requetesApi(implode("\n", [$q('a', 10), "[2026-10-15 10:51:11][INFO] {", "&quot;apikey&quot;:&quot;x&quot;} - IP :203.0.113.9", sprintf($r, 12), sprintf($r, 13)]));
+$ok(count($rq) == 3 && !$rq[0]['refuse'] && $rq[1]['ip'] == '203.0.113.9' && $rq[1]['refuse'] && $rq[2]['ip'] == '?' && $rq[2]['refuse'], 'refus d\'une requête sur plusieurs lignes');
+$c = secaudit_tests::clientsRefuses($rq, '');
+$ok($c['clients'] == [] && $c['total'] == 2, 'orphelins comptés sur la période seulement');
+// fausse requête dans un corps, suivie de la vraie fin de ligne : le refus va à l'IP réelle
+$rq = secaudit_tests::requetesApi(implode("\n", ["[2026-10-15 10:51:10][INFO] {", $q('a', 11, '8.8.8.8'), "} - IP :203.0.113.9", sprintf($r, 12)]));
+$ok(count($rq) == 2 && $rq[1]['ip'] == '203.0.113.9' && $rq[1]['refuse'] && !$rq[0]['refuse'], 'requête forgée dans un corps');
+// autre code d'erreur : ni refus, ni remise à zéro
+$c = secaudit_tests::clientsRefuses(secaudit_tests::requetesApi(implode("\n", [$q('a', 10), sprintf($r, 11), $q('a', 12), "[2026-10-15 10:51:13][INFO] Error code 1 : x", $q('a', 14), sprintf($r, 15)])), '');
+$ok($c['clients'][0]['nb'] == 2 && $c['total'] == 2, 'erreur autre que la clé sans effet sur le compteur');
+$c = secaudit_tests::clientsRefuses(secaudit_tests::requetesApi(implode("\n", [$q('a', 10, '100.100.1.2'), sprintf($r, 11), $q('a', 12, '203.0.113.9'), sprintf($r, 13)])), '');
+$ok($c['externes'] == ['203.0.113.9' => 1] && $c['total'] == 2, 'Tailscale (100.64.0.0/10) hors refus d\'Internet');
+echo "lecture des services OK\n";
 $e = secaudit_journal::lireEssai("[Tue Oct 14 08:04:12.123 2026] [access_compat:error] [pid 1:tid 1] [client 87.58.199.133:5555] AH01797: client denied by server configuration: /var/www/html/.env.json");
 $ok($e && $e['ip'] == '87.58.199.133' && $e['chemin'] == '/.env.json' && !$e['absent'] && date('Y-m-d H:i', $e['t']) == '2026-10-14 08:04', 'lecture refus');
 $e = secaudit_journal::lireEssai("[Tue Oct 13 12:13:23.634602 2026] [php:error] [pid 1:tid 1] [client 94.127.15.189:62434] script '/var/www/html/core/ajax/planHeader.ajax.php' not found or unable to stat, referer: x");
