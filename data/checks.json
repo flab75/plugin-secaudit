@@ -1,0 +1,151 @@
+{
+  "version": "2026-10-13",
+  "_doc": "Règles d'audit. type : config (clé Jeedom), core_version, (règles aussi acceptées depuis la base téléchargée), shell et builtin (locales seulement). Un test vaut « problème » quand sa condition est vraie. gravite : critique, haute, moyenne, info (info ne baisse pas le score). fix : nom d'un correctif local (méthode fix_<nom> de secaudit_correctifs, reçoit la règle).",
+  "checks": [
+    {
+      "id": "plateforme", "type": "builtin", "test": "plateforme", "gravite": "info",
+      "titre": "Plateforme",
+      "resolution": "Informatif. VM : sauvegarder aussi la VM elle-même et garder l'hôte à jour (il porte la sécurité de Jeedom). Raspberry Pi : carte SD fragile, sauvegardes Jeedom hors de la carte. Docker : ne publier que les ports utiles."
+    },
+    {
+      "id": "admins_2fa", "type": "builtin", "test": "admins_sans_2fa", "gravite": "haute",
+      "titre": "Administrateur sans double authentification",
+      "resolution": "Chaque administrateur active la double authentification depuis son profil (icône utilisateur › Profil › onglet Sécurité) avec une application TOTP. Sur une installation Jeedom standard, www-data a sudo sans mot de passe : un administrateur Jeedom est root sur la machine."
+    },
+    {
+      "id": "users_disabled", "type": "builtin", "test": "comptes_desactives", "gravite": "info",
+      "titre": "Comptes désactivés encore présents",
+      "resolution": "Supprimer les comptes inutiles : Réglages › Système › Utilisateurs, bouton supprimer."
+    },
+    {
+      "id": "api_http", "type": "config", "key": "api::core::http::mode", "op": "eq", "value": "enable", "gravite": "haute", "fix": "api_whiteip", "avertissement": "Les appels à l'API depuis une adresse hors liste blanche seront refusés : applis mobiles en 4G, raccourcis iOS, IFTTT… Vérifiez avant dans Analyse › Logs › api qui l'appelle.",
+      "titre": "API HTTP de Jeedom ouverte à tous",
+      "resolution": "Réglages › Système › Configuration › API : passer l'API HTTP en « IP blanche » (ou « Désactivé » si rien ne s'en sert). Vérifier avant dans Analyse › Logs › api qui l'appelle et depuis quelle adresse."
+    },
+    {
+      "id": "api_jsonrpc", "type": "config", "key": "api::core::jsonrpc::mode", "op": "eq", "value": "enable", "gravite": "haute", "fix": "api_whiteip", "avertissement": "Les appels à l'API depuis une adresse hors liste blanche seront refusés : applis mobiles en 4G, raccourcis iOS, IFTTT… Vérifiez avant dans Analyse › Logs › api qui l'appelle.",
+      "titre": "API JSON-RPC de Jeedom ouverte à tous",
+      "resolution": "Réglages › Système › Configuration › API : passer l'API JSON-RPC en « IP blanche ». Les plugins locaux (Homebridge…) appellent depuis le réseau local et restent autorisés."
+    },
+    {
+      "id": "api_tts", "type": "config", "key": "api::core::tts::mode", "op": "eq", "value": "enable", "gravite": "moyenne", "fix": "api_whiteip", "avertissement": "Les appels à l'API depuis une adresse hors liste blanche seront refusés : applis mobiles en 4G, raccourcis iOS, IFTTT… Vérifiez avant dans Analyse › Logs › api qui l'appelle.",
+      "titre": "API TTS ouverte à tous",
+      "resolution": "Réglages › Système › Configuration › API : passer l'API TTS en « IP blanche »."
+    },
+    {
+      "id": "whiteips_large", "type": "builtin", "test": "whiteips_large", "gravite": "moyenne", "fix": "whiteips", "avertissement": "Retire de la liste blanche les entrées plus larges qu'un /24 (10.*, 192.168.*.*, 192.*.1.*, 10.0.0.0/8, *…), les entrées illisibles (192.168.1.01-…) et tout réseau IPv6 (même votre /64 ; une adresse IPv6 exacte reste) : un conteneur Docker, un VPN ou un second réseau qui y comptaient pourront être bannis et perdront les API en mode IP blanche.",
+      "titre": "Liste blanche trop large",
+      "resolution": "Réglages › Système › Configuration › Réseaux/Sécurité : les adresses de la liste blanche ne sont jamais bannies et ont accès aux API en mode « IP blanche ». Garder 127.0.0.1 et le seul sous-réseau local (ex. 192.168.1.*)."
+    },
+    {
+      "id": "ban_seuil", "type": "config", "key": "security::maxFailedLogin", "op": "gt", "value": 10, "gravite": "moyenne",
+      "titre": "Anti-intrusion trop permissif",
+      "resolution": "Réglages › Système › Configuration › Sécurité : 5 à 6 essais maximum, bannissement d'au moins 10 minutes."
+    },
+    {
+      "id": "https_externe", "type": "config", "key": "externalProtocol", "op": "eq", "value": "http://", "gravite": "haute",
+      "titre": "Accès externe en HTTP (non chiffré)",
+      "resolution": "Mettre un certificat (Let's Encrypt / certbot) et passer l'accès externe en https:// dans Réglages › Système › Configuration › Réseaux. Rediriger le port 80 vers https."
+    },
+    {
+      "id": "certificat", "type": "builtin", "test": "certificat_expire", "gravite": "haute",
+      "titre": "Certificat HTTPS expiré ou proche de l'expiration",
+      "resolution": "Renouveler : `sudo certbot renew` puis `sudo systemctl reload apache2`. Vérifier que le timer certbot est actif (`systemctl list-timers | grep certbot`) et que le port 80 (acme-challenge) est joignable."
+    },
+    {
+      "id": "maj_jeedom", "type": "builtin", "test": "maj_jeedom", "gravite": "moyenne",
+      "titre": "Mises à jour Jeedom / plugins en attente",
+      "resolution": "Réglages › Système › Centre de mise à jour : faire une sauvegarde, puis mettre à jour."
+    },
+    {
+      "id": "maj_securite_debian", "type": "builtin", "test": "maj_securite_debian", "gravite": "moyenne",
+      "titre": "Mises à jour de sécurité Debian en attente",
+      "resolution": "En SSH : `sudo apt update && sudo apt upgrade`. Pour automatiser : `sudo apt install unattended-upgrades` (sécurité seulement par défaut)."
+    },
+    {
+      "id": "fichiers_publics", "type": "builtin", "test": "fichiers_publics", "gravite": "moyenne", "fix": "fichiers_publics",
+      "titre": "Fichiers lisibles sans connexion dans data/",
+      "resolution": "Dans /var/www/html/data/, les fichiers .js, .css, .html, .txt sont servis sans authentification (sauvegardes, exports…). Les déplacer hors du site web ou les renommer en .json (refusé par Apache)."
+    },
+    {
+      "id": "chemins_vises", "type": "builtin", "test": "chemins_vises", "gravite": "haute",
+      "titre": "Fichiers recherchés par les robots et servis par Apache",
+      "resolution": "Chaque chemin demandé par une IP extérieure (journal http.error) est retenu. S'il existe ici, l'audit le demande en local : une réponse 200 veut dire que n'importe qui peut le lire. Supprimer le fichier, le déplacer hors de /var/www/html ou l'interdire dans la configuration Apache. Un script PHP absent quand un robot l'a demandé et présent maintenant est signalé aussi (sauf s'il a été livré par le plugin avant la demande, ou par une mise à jour de Jeedom faite après) : l'ouvrir pour vérifier que ce n'est pas une porte dérobée. En cas de doute, le déplacer hors de /var/www/html plutôt que le supprimer, et chercher comment il est arrivé là. Le signalement s'efface après 90 jours."
+    },
+    {
+      "id": "entetes_ip", "type": "shell", "cmd": "for h in X-Forwarded-For X-Real-IP CF-Connecting-IP Client-IP; do grep -RqiEs \"^\\\\s*RequestHeader\\\\s+unset\\\\s+$h\" /etc/apache2/conf-enabled/ /etc/apache2/sites-enabled/ || echo \"absent $h\"; done; [ -e /etc/apache2/mods-enabled/remoteip.load ] && echo remoteip", "regex": "/absent|remoteip/", "gravite": "haute",
+      "titre": "Jeedom croit les en-têtes X-Forwarded-For & co. : un attaquant peut se faire passer pour une IP de la liste blanche et échapper au bannissement",
+      "resolution": "Créer /etc/apache2/conf-available/secaudit-entetes.conf avec « RequestHeader unset X-Forwarded-For », idem X-Real-IP, CF-Connecting-IP et Client-IP, puis : a2enmod headers ; a2enconf secaudit-entetes ; apache2ctl configtest ; systemctl reload apache2. Désactiver aussi mod_remoteip (a2dismod remoteip), qui lirait X-Forwarded-For avant qu'il soit retiré. (Sauf si Jeedom est derrière un proxy qui pose ces en-têtes.)"
+    },
+    {
+      "id": "ssh_root", "type": "shell", "cmd": "sudo -n sshd -T 2>/dev/null", "regex": "/^permitrootlogin yes$/m", "gravite": "haute",
+      "titre": "SSH : connexion root par mot de passe autorisée",
+      "resolution": "Dans /etc/ssh/sshd_config : `PermitRootLogin prohibit-password` (ou no), puis `sudo systemctl reload ssh`."
+    },
+    {
+      "id": "ssh_password", "type": "shell", "cmd": "sudo -n sshd -T 2>/dev/null", "regex": "/^passwordauthentication yes$/m", "gravite": "moyenne",
+      "titre": "SSH accepte les mots de passe",
+      "resolution": "1) Depuis l'ordinateur : `ssh-copy-id utilisateur@ip-jeedom`, vérifier que la connexion par clé marche. 2) Dans /etc/ssh/sshd_config : `PasswordAuthentication no`, puis `sudo systemctl reload ssh`. Garder une session ouverte pendant le test."
+    },
+    {
+      "id": "ssh_x11", "type": "shell", "cmd": "sudo -n sshd -T 2>/dev/null", "regex": "/^x11forwarding yes$/m", "gravite": "info",
+      "titre": "SSH : X11Forwarding activé (inutile sur un serveur)",
+      "resolution": "Dans /etc/ssh/sshd_config : `X11Forwarding no`, puis `sudo systemctl reload ssh`."
+    },
+    {
+      "id": "fail2ban", "type": "shell", "cmd": "command -v fail2ban-client >/dev/null && sudo -n fail2ban-client ping 2>&1 || echo ABSENT", "regex": "/ABSENT|error|not running/i", "gravite": "moyenne",
+      "titre": "fail2ban absent ou arrêté",
+      "resolution": "`sudo apt install fail2ban`, puis activer au moins les prisons sshd et apache (fichier /etc/fail2ban/jail.local)."
+    },
+    {
+      "id": "remoteip", "type": "shell", "cmd": "grep -ls RemoteIPHeader /etc/apache2/conf-enabled/*.conf /etc/apache2/sites-enabled/*.conf 2>/dev/null | xargs -r grep -LE 'RemoteIP(Trusted|Internal)Proxy'", "regex": "/\\S/", "gravite": "moyenne",
+      "titre": "Apache remoteip sans proxy de confiance (IP client falsifiable)",
+      "resolution": "Sans reverse proxy : `sudo a2disconf remoteip && sudo systemctl reload apache2`. Avec un proxy : ajouter `RemoteIPTrustedProxy <ip du proxy>`. Sinon un attaquant choisit son IP via X-Forwarded-For et contourne liste blanche et bannissement."
+    },
+    {
+      "id": "mysql_ecoute", "type": "shell", "cmd": "sudo -n ss -tlnH 2>/dev/null", "regex": "/(0\\.0\\.0\\.0|\\*|\\[::\\]):3306\\s/", "gravite": "moyenne",
+      "titre": "MariaDB écoute sur toutes les interfaces",
+      "resolution": "Jeedom n'utilise la base qu'en local. Dans /etc/mysql/mariadb.conf.d/50-server.cnf (et vérifier qu'aucun autre fichier ne l'écrase : `grep -r bind-address /etc/mysql/`) : `bind-address = 127.0.0.1`, puis `sudo systemctl restart mariadb`."
+    },
+    {
+      "id": "zwavejs_ui", "type": "shell", "cmd": "sudo -n ss -tlnH 2>/dev/null", "regex": "/(0\\.0\\.0\\.0|\\*|\\[::\\]):8091\\s/", "gravite": "moyenne",
+      "titre": "Z-Wave JS UI (port 8091) accessible depuis le réseau local",
+      "resolution": "L'interface Z-Wave JS UI donne le contrôle complet du réseau Z-Wave (exclusion, reset). Activer son authentification (Settings › General › Auth) ou la limiter à 127.0.0.1. Ne jamais rediriger ce port sur la box."
+    },
+    {
+      "id": "ports_ouverts", "type": "builtin", "test": "ports_ouverts", "gravite": "moyenne",
+      "titre": "Services ouverts à tout le réseau local",
+      "resolution": "Pour chaque port listé : vérifier que le service a un mot de passe, sinon le limiter à 127.0.0.1 dans sa configuration (Docker : `-p 127.0.0.1:PORT:PORT`). Un port voulu et protégé s'ajoute à « Ports acceptés » dans la configuration du plugin. Ne jamais les rediriger sur la box."
+    },
+    {
+      "id": "api_refus", "type": "shell", "cmd": "tail -c 20000 /var/www/html/log/api 2>/dev/null | grep -c 'Error code 2'", "regex": "/^[1-9]/", "gravite": "moyenne",
+      "titre": "Appels à l'API Jeedom refusés en boucle",
+      "resolution": "Analyse › Logs › api : repérer le client refusé (Homebridge, application…). Lui redonner une clé API valide, ou mettre son adresse dans la liste blanche si l'API est en mode « IP blanche »."
+    },
+    {
+      "id": "mqtt_anonyme", "type": "shell", "cmd": "sudo -n grep -rhs allow_anonymous /etc/mosquitto /var/www/html/plugins/mqtt2/data 2>/dev/null", "regex": "/^\\s*allow_anonymous\\s+true/m", "gravite": "haute",
+      "titre": "MQTT accepte les connexions anonymes",
+      "resolution": "Dans la configuration de mosquitto (ou du plugin MQTT Manager) : `allow_anonymous false` et un fichier de mots de passe. Tout client MQTT anonyme peut piloter les modules Zigbee / Z-Wave."
+    },
+    {
+      "id": "sudo_www", "type": "shell", "cmd": "sudo -n -l 2>/dev/null", "regex": "/NOPASSWD:\\s*ALL/", "gravite": "info",
+      "titre": "www-data a sudo sans mot de passe (standard Jeedom)",
+      "resolution": "Normal sur Jeedom (nécessaire aux plugins). Conséquence : tout accès administrateur à Jeedom = root. D'où double authentification, API restreinte et mises à jour."
+    },
+    {
+      "id": "box_ports", "type": "builtin", "test": "rappel", "gravite": "info",
+      "titre": "Redirections de ports de la box : à vérifier à la main",
+      "resolution": "Dans l'interface de la box : seul le 443 (et le 80 pour le renouvellement du certificat) doit être redirigé vers Jeedom. Jamais 22, 1883, 3306, 8080, 8091. Une fois vérifié, cocher « Box vérifiée » dans la configuration du plugin."
+    },
+    {
+      "id": "CVE-2021-42557", "type": "core_version", "max": "4.1.19", "gravite": "haute",
+      "titre": "CVE-2021-42557 : contournement de l'API, récupération des identifiants",
+      "resolution": "Mettre Jeedom à jour (Réglages › Système › Centre de mise à jour).", "reference": "https://nvd.nist.gov/vuln/detail/CVE-2021-42557"
+    },
+    {
+      "id": "CVE-2020-9036", "type": "core_version", "max": "4.0.38", "gravite": "moyenne",
+      "titre": "CVE-2020-9036 : faille XSS",
+      "resolution": "Mettre Jeedom à jour (Réglages › Système › Centre de mise à jour).", "reference": "https://nvd.nist.gov/vuln/detail/CVE-2020-9036"
+    }
+  ]
+}

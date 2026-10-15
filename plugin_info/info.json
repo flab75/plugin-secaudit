@@ -1,0 +1,36 @@
+{
+	"id": "secaudit",
+	"name": "Audit sécurité",
+	"pluginVersion": "0.23",
+	"description": {
+		"fr_FR": "Audit de sécurité de l'installation Jeedom : rapport des points à résoudre, méthode pour chacun, correctifs proposés, base des failles connues mise à jour chaque jour (NVD).",
+		"en_US": "Security audit of the Jeedom installation: report of the issues to fix, how to fix each one, proposed fixes, known-vulnerability database updated daily (NVD)."
+	},
+	"licence": "AGPL",
+	"author": "flab",
+	"require": "4.2",
+	"os": {
+		"min": 11,
+		"max": 12.99
+	},
+	"category": "monitoring",
+	"hasDependency": true,
+	"hasOwnDeamon": false,
+	"maxDependancyInstallTime": 10,
+	"changelog_beta": "https://github.com/flab75/plugin-secaudit/blob/beta/docs/#language#/changelog.md",
+	"documentation_beta": "https://github.com/flab75/plugin-secaudit/blob/beta/docs/#language#/index.md",
+	"changelog": "https://github.com/flab75/plugin-secaudit/blob/master/docs/#language#/changelog.md",
+	"documentation": "https://github.com/flab75/plugin-secaudit/blob/master/docs/#language#/index.md",
+	"language": [
+		"fr_FR",
+		"en_US"
+	],
+	"compatibility": [
+		"diy",
+		"docker",
+		"rpi",
+		"luna",
+		"atlas",
+		"smart"
+	]
+}
