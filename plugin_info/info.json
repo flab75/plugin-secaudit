@@ -13,7 +13,7 @@
 		"min": 11,
 		"max": 12.99
 	},
-	"category": "monitoring",
+	"category": "security",
 	"hasDependency": true,
 	"hasOwnDeamon": false,
 	"maxDependancyInstallTime": 10,
