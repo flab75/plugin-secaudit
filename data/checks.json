@@ -58,6 +58,16 @@
       "resolution": "Réglages › Système › Centre de mise à jour : faire une sauvegarde, puis mettre à jour."
     },
     {
+      "id": "jeedom_4_6_2", "type": "core_version", "max": "4.6.2", "exclu": true, "gravite": "moyenne",
+      "titre": "Jeedom antérieur à 4.6.2 (protections PHP et Apache)",
+      "resolution": "Mettre Jeedom à jour (Réglages › Système › Centre de mise à jour). La 4.6.2 durcit PHP contre une faille connue (session.upload_progress, max_input_nesting_level) et les ajoute à la configuration de sécurité d'Apache (security.conf).", "reference": "https://doc.jeedom.com/fr_FR/core/4.6/changelog"
+    },
+    {
+      "id": "apache_security", "type": "builtin", "test": "apache_security", "gravite": "moyenne",
+      "titre": "Configuration de sécurité d'Apache modifiée",
+      "resolution": "Le constat liste les lignes de /var/www/html/install/apache_security (livré par Jeedom) absentes de la configuration active (/etc/apache2/conf-enabled/security.conf, lien vers conf-available). Si ce n'est pas voulu : bouton « Apache sécurisé » (Réglages › Système › Configuration › OS/DB › Administration Système), ou en SSH `sudo cp /var/www/html/install/apache_security /etc/apache2/conf-available/security.conf`, `sudo a2enconf security`, `sudo apache2ctl configtest` puis `sudo systemctl reload apache2` (si conf-enabled/security.conf est un vrai fichier et non un lien, le supprimer avant `a2enconf`). Un réglage personnel va plutôt dans un fichier à part de conf-available (depuis la 4.5, une mise à jour de Jeedom réécrit security.conf s'il contient jeedom.com)."
+    },
+    {
       "id": "maj_securite_debian", "type": "builtin", "test": "maj_securite_debian", "gravite": "moyenne",
       "titre": "Mises à jour de sécurité Debian en attente",
       "resolution": "En SSH : `sudo apt update && sudo apt upgrade`. Pour automatiser : `sudo apt install unattended-upgrades` (sécurité seulement par défaut)."

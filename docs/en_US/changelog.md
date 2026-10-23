@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.27 (2026-10-23)
+Following Jeedom 4.6.2:
+- `jeedom_4_6_2`: Jeedom older than 4.6.2 is reported (PHP protections against a known vulnerability, PHP protections added to Apache's security configuration).
+- `apache_security`: reports lines of the security configuration shipped by Jeedom (`install/apache_security`) missing from the active `security.conf`, or `security.conf` disabled or its link broken (Apache only; before 4.5, or without `jeedom.com` in `security.conf`, or a conf-enabled `security.conf` that is not a link, the finding says Jeedom does not copy this file).
+- The "Wizard" and "Add my current address" buttons move from `onclick` to the plugin's JavaScript file (ready for a stricter content security policy).
+- Adversarial review: lines counted with their repeats (the `php_admin_*` lines are in two blocks), active configuration read, unreadable = error, nothing without Apache.
+
 ## 0.26 (2026-10-15)
 Diagnostics refined from real cases (Homebridge refused by the API, Signal container open to the network, Debian 12 MariaDB):
 - `ssh_password`: the finding says how many SSH keys are installed and who still logs in with a password (30 days); the fix warns not to turn passwords off without a key.

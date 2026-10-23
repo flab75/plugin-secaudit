@@ -50,14 +50,14 @@
 		"Tentatives d'intrusion et bannissements": "Intrusion attempts and bans",
 		"Tout reste modifiable dans Configuration.": "Everything can still be changed in Configuration.",
 		"Une par ligne. Si l'une est bannie, l'alerte vous le dira.": "One per line. If one gets banned, the alert will tell you.",
-		"Votre IP": "Your IP",
-		"ajoutée par l\\'assistant": "added by the wizard"
+		"Votre IP": "Your IP"
 	},
 	"plugins/secaudit/desktop/js/secaudit.js": {
 		"Appliquer le correctif ? L\\'ancienne valeur est sauvegardée dans plugins/secaudit/data/sauvegardes.json.": "Apply the fix? The old value is saved in plugins/secaudit/data/sauvegardes.json.",
 		"Audit sécurité : méthodes et raisons": "Security audit: methods and reasons",
 		"Débannir": "Unban",
-		"Débannir %s ?": "Unban %s?"
+		"Débannir %s ?": "Unban %s?",
+		"ajoutée par l\\'assistant": "added by the wizard"
 	},
 	"plugins/secaudit/desktop/modal/methodes.php": {
 		"401 - Accès non autorisé": "401 - Unauthorized access"
@@ -97,6 +97,13 @@
 		"expire le %s (%s j)": "expires on %s (%s days)",
 		"%s en attente": "%s pending",
 		"%s fichier(s) : %s": "%s file(s): %s",
+		"security.conf désactivé": "security.conf disabled",
+		"security.conf illisible": "security.conf unreadable",
+		"lien security.conf cassé : Apache refusera de redémarrer": "broken security.conf link: Apache will refuse to restart",
+		"security.conf de conf-enabled n'est pas un lien : Jeedom met à jour celui de conf-available": "security.conf in conf-enabled is not a link: Jeedom updates the one in conf-available",
+		"Jeedom < 4.5 ne recopie pas ce fichier lors des mises à jour": "Jeedom < 4.5 does not copy this file during updates",
+		"security.conf sans jeedom.com : Jeedom ne le recopie pas lors des mises à jour": "security.conf without jeedom.com: Jeedom does not copy it during updates",
+		"%s ligne(s) absente(s) : %s": "%s missing line(s): %s",
 		"conteneur Docker": "Docker container",
 		"machine virtuelle (%s)": "virtual machine (%s)",
 		"machine physique": "physical machine",
@@ -258,6 +265,10 @@
 		"Dans l'interface de la box : seul le 443 (et le 80 pour le renouvellement du certificat) doit être redirigé vers Jeedom. Jamais 22, 1883, 3306, 8080, 8091. Une fois vérifié, cocher « Box vérifiée » dans la configuration du plugin.": "In your router's interface, only 443 (and 80 for certificate renewal) should be forwarded to Jeedom. Never 22, 1883, 3306, 8080 or 8091. Once checked, tick \"Router port forwarding checked\" in the plugin configuration.",
 		"CVE-2021-42557 : contournement de l'API, récupération des identifiants": "CVE-2021-42557: API bypass, credential disclosure",
 		"Mettre Jeedom à jour (Réglages › Système › Centre de mise à jour).": "Update Jeedom (Settings › System › Update center).",
-		"CVE-2020-9036 : faille XSS": "CVE-2020-9036: XSS vulnerability"
+		"CVE-2020-9036 : faille XSS": "CVE-2020-9036: XSS vulnerability",
+		"Jeedom antérieur à 4.6.2 (protections PHP et Apache)": "Jeedom older than 4.6.2 (PHP and Apache protections)",
+		"Mettre Jeedom à jour (Réglages › Système › Centre de mise à jour). La 4.6.2 durcit PHP contre une faille connue (session.upload_progress, max_input_nesting_level) et les ajoute à la configuration de sécurité d'Apache (security.conf).": "Update Jeedom (Settings › System › Update center). 4.6.2 hardens PHP against a known vulnerability (session.upload_progress, max_input_nesting_level) and adds them to Apache's security configuration (security.conf).",
+		"Configuration de sécurité d'Apache modifiée": "Apache security configuration modified",
+		"Le constat liste les lignes de /var/www/html/install/apache_security (livré par Jeedom) absentes de la configuration active (/etc/apache2/conf-enabled/security.conf, lien vers conf-available). Si ce n'est pas voulu : bouton « Apache sécurisé » (Réglages › Système › Configuration › OS/DB › Administration Système), ou en SSH `sudo cp /var/www/html/install/apache_security /etc/apache2/conf-available/security.conf`, `sudo a2enconf security`, `sudo apache2ctl configtest` puis `sudo systemctl reload apache2` (si conf-enabled/security.conf est un vrai fichier et non un lien, le supprimer avant `a2enconf`). Un réglage personnel va plutôt dans un fichier à part de conf-available (depuis la 4.5, une mise à jour de Jeedom réécrit security.conf s'il contient jeedom.com).": "The finding lists the lines of /var/www/html/install/apache_security (shipped by Jeedom) missing from the active configuration (/etc/apache2/conf-enabled/security.conf, a link to conf-available). If this is not intended: the « Apache sécurisé » (secure Apache) button (Settings › System › Configuration › OS/DB › System administration), or over SSH `sudo cp /var/www/html/install/apache_security /etc/apache2/conf-available/security.conf`, `sudo a2enconf security`, `sudo apache2ctl configtest` then `sudo systemctl reload apache2` (if conf-enabled/security.conf is a real file rather than a link, delete it before `a2enconf`). A personal setting belongs in a separate file in conf-available instead (since 4.5, a Jeedom update rewrites security.conf if it contains jeedom.com)."
 	}
 }

@@ -54,6 +54,10 @@ $ok(secaudit_tests::clesSsh("== /root/.ssh/authorized_keys\nssh-ed25519 AAAA x\n
   == ['root' => 1, 'm1' => 2], 'clés SSH par compte');
 $ok(secaudit_tests::connexionsMdp("sshd[1]: Accepted password for m1 from 192.168.1.200 port 1 ssh2\nsshd[2]: Accepted publickey for m1 from 192.168.1.9 port 2 ssh2\nsshd[3]: Accepted password for m1 from 192.168.1.200 port 3 ssh2\nsshd[4]: Failed password for root from 1.2.3.4 port 4 ssh2")
   == ['m1' => ['192.168.1.200']], 'connexions SSH par mot de passe');
+$ok(secaudit_tests::lignesManquantes("ServerTokens Prod\n# x\n<Directory /var/www/html>\nOptions -Indexes\n</Directory>\n\n<IfModule a>\n</IfModule>", "ServerTokens   Prod\n<Directory /var/www/html>\n</Directory>\nTraceEnable On")
+  == ['Options -Indexes', '<IfModule a>', '</IfModule>'], 'lignes manquantes de security.conf');
+$ok(secaudit_tests::lignesManquantes("a\n# b\n", " a \n") == [], 'security.conf identique');
+$ok(secaudit_tests::lignesManquantes("<IfModule a>\nphp x\n</IfModule>\n<IfModule b>\nphp x\n</IfModule>", "<IfModule a>\n</IfModule>\n<IfModule b>\nphp x\n</IfModule>") == ['php x'], 'ligne répétée retirée d\'un seul bloc');
 $q = fn($p, $id, $ip = '192.168.1.202') => "[2026-10-15 10:51:$id][INFO] { &quot;jsonrpc&quot;: &quot;2.0&quot;, &quot;id&quot;:$id, &quot;method&quot;: &quot;daemonIsReady&quot;, &quot;params&quot;:{ &quot;plugin&quot;: &quot;$p&quot;, &quot;apikey&quot;: &quot;k$p&quot;}} - IP :$ip";
 $r = "[2026-10-15 10:51:%s][INFO] Error code 2 : Vous n&apos;êtes pas autorisé à effectuer cette action";
 $rq = secaudit_tests::requetesApi(implode("\n", [$q('homebridge', 20), sprintf($r, 21), $q('z2m', 23), $q('homebridge', 24), sprintf($r, 25), $q('<b>', 26), sprintf($r, 27), $q('z2m', 28), sprintf($r, 29), $q('z2m', 30)]));

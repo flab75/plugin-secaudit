@@ -50,6 +50,34 @@ class secaudit_tests {
     return [$n > 0, sprintf(__('%s en attente', __FILE__), $n)];
   }
 
+  // Lignes de la configuration livrée par Jeedom absentes de celle d'Apache (espaces et commentaires ignorés).
+  // Comptées avec leurs répétitions : les php_admin_* existent dans deux blocs <IfModule>, vider l'un doit se voir.
+  // ponytail: lignes manquantes seulement ; une directive ajoutée ensuite qui en annule une (Options +Indexes) passe, casse comprise (copie exacte attendue)
+  public static function lignesManquantes($ref, $actuel) {
+    $n = fn($t) => array_count_values(array_filter(array_map(fn($x) => preg_replace('/\s+/', ' ', trim($x)), explode("\n", $t)), fn($x) => $x !== '' && $x[0] != '#'));
+    $a = $n($actuel);
+    return array_keys(array_filter($n($ref), fn($c, $x) => ($a[$x] ?? 0) < $c, ARRAY_FILTER_USE_BOTH));
+  }
+
+  // Jeedom 4.5+ recopie install/apache_security dans conf-available/security.conf (mise à jour, réparation) si celui-ci contient jeedom.com ; la 4.6.2 y ajoute les protections PHP.
+  // Sinon seuls l'installation et le bouton « Apache sécurisé » (page Système) le recopient : l'écart vient en général des mises à jour, le constat le dit
+  public static function test_apache_security() {
+    $ref = '/var/www/html/install/apache_security';
+    $f = '/etc/apache2/conf-enabled/security.conf'; // celle qu'Apache charge (lien vers conf-available d'habitude)
+    if (!is_file($ref) || !is_dir('/etc/apache2')) return [false, ''];
+    if (is_link($f) && !file_exists($f)) return [true, __('lien security.conf cassé : Apache refusera de redémarrer', __FILE__)];
+    if (!file_exists($f)) return [true, __('security.conf désactivé', __FILE__)];
+    if (!is_readable($f)) throw new Exception(__('security.conf illisible', __FILE__));
+    $c = (string)file_get_contents($f);
+    $l = self::lignesManquantes((string)file_get_contents($ref), $c);
+    if (!$l) return [false, ''];
+    $d = sprintf(__('%s ligne(s) absente(s) : %s', __FILE__), count($l), implode(' ; ', array_slice($l, 0, 5)));
+    if (!is_link($f)) return [true, __('security.conf de conf-enabled n\'est pas un lien : Jeedom met à jour celui de conf-available', __FILE__) . ' ; ' . $d];
+    if (version_compare(jeedom::version(), '4.5', '<')) return [true, __('Jeedom < 4.5 ne recopie pas ce fichier lors des mises à jour', __FILE__) . ' ; ' . $d];
+    if (strpos($c, 'jeedom.com') === false) return [true, __('security.conf sans jeedom.com : Jeedom ne le recopie pas lors des mises à jour', __FILE__) . ' ; ' . $d];
+    return [true, $d];
+  }
+
   public static function test_maj_securite_debian() {
     $l = array_filter(explode("\n", (string)shell_exec('apt-get -s upgrade 2>/dev/null')), fn($x) => strpos($x, 'Inst ') === 0 && stripos($x, 'security') !== false);
     $noms = array_map(fn($x) => explode(' ', $x)[1], $l);

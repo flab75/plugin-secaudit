@@ -36,3 +36,14 @@ document.getElementById('secauditDoc').addEventListener('click', function () {
   if (window.jeeDialog) jeeDialog.dialog({id: 'jee_modal', title: t, contentUrl: u})
   else $('#md_modal').dialog({title: t}).load(u).dialog('open') // Jeedom < 4.4
 })
+
+// Boutons de l'assistant (ici plutôt qu'en onclick : une CSP sans 'unsafe-inline' les bloquerait)
+document.getElementById('secauditAssistantOuvrir').addEventListener('click', function () {
+  document.getElementById('secauditAssistant').style.display = ''
+})
+document.querySelectorAll('#secauditMonIp').forEach(function (b) { // absent quand l'adresse est locale
+  b.addEventListener('click', function () {
+    var t = b.parentNode.querySelector('textarea')
+    t.value = (t.value.trim() ? t.value.trim() + '\n' : '') + b.dataset.ip + '  # {{ajoutée par l\'assistant}}'
+  })
+})

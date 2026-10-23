@@ -12,7 +12,7 @@ $etat = ['probleme' => '<i class="fas fa-times-circle" style="color:#d9534f"></i
     <a class="btn btn-success secauditAction" data-action="run"><i class="fas fa-play"></i> {{Lancer l'audit}}</a>
     <a class="btn btn-default secauditAction" data-action="updateBase"><i class="fas fa-sync"></i> {{Mettre à jour la base (failles connues)}}</a>
     <a class="btn btn-default" href="index.php?v=d&p=plugin&id=secaudit"><i class="fas fa-wrench"></i> {{Configuration}}</a>
-    <a class="btn btn-default" onclick="document.getElementById('secauditAssistant').style.display=''"><i class="fas fa-magic"></i> {{Assistant}}</a>
+    <a class="btn btn-default" id="secauditAssistantOuvrir"><i class="fas fa-magic"></i> {{Assistant}}</a>
     <a class="btn btn-default" id="secauditDoc"><i class="fas fa-book"></i> {{Documentation}}</a>
     <br/><br/>
     <?php // Assistant : ouvert seul à la première visite après l'installation ou la mise à jour 0.19 (clé « assistant » absente), puis par le bouton. Questions = réglages de la configuration
@@ -29,7 +29,7 @@ $etat = ['probleme' => '<i class="fas fa-times-circle" style="color:#d9534f"></i
           <div class="col-md-6"><textarea class="form-control" rows="3" data-k="liste_blanche" placeholder="203.0.113.7  # 4G"><?php echo htmlspecialchars(config::byKey('liste_blanche', 'secaudit', '')); ?></textarea>
             <small>{{Une par ligne. Si l'une est bannie, l'alerte vous le dira.}}</small>
             <?php if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) { ?>
-            <a class="btn btn-xs btn-default" onclick="var t=this.parentNode.querySelector('textarea');t.value=(t.value.trim()?t.value.trim()+'\n':'')+'<?php echo $ip; ?>  # {{ajoutée par l\'assistant}}'">{{Ajouter mon adresse actuelle}} (<?php echo $ip; ?>)</a>
+            <a class="btn btn-xs btn-default" id="secauditMonIp" data-ip="<?php echo htmlspecialchars($ip); ?>">{{Ajouter mon adresse actuelle}} (<?php echo htmlspecialchars($ip); ?>)</a>
             <?php } ?></div></div>
         <div class="form-group"><label class="col-md-4 control-label">{{3. Ces services ouverts au réseau sont-ils voulus et protégés par un mot de passe ?}}</label>
           <div class="col-md-6"><?php if (!$ports) echo '{{Aucun service inattendu.}}';
