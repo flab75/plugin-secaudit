@@ -45,9 +45,13 @@ class secaudit_tests {
     return [(bool)$l, implode(' ; ', $l)];
   }
 
+  // Mises à jour en attente, comptées comme update::nbNeedUpdate() (statut « update », hors celles marquées « ne pas mettre à jour »),
+  // mais nommées : un « 1 en attente » seul se lisait « Jeedom pas à jour » alors que c'était un plugin. Détail vide si tout est à jour.
   public static function test_maj_jeedom() {
-    $n = update::nbNeedUpdate();
-    return [$n > 0, sprintf(__('%s en attente', __FILE__), $n)];
+    $l = [];
+    foreach (update::all() as $u)
+      if ($u->getStatus() == 'update' && $u->getConfiguration('doNotUpdate', 0) != 1) $l[] = $u->getType() == 'core' ? 'Jeedom' : ($u->getName() ?: $u->getLogicalId());
+    return [(bool)$l, $l ? sprintf(__('%s en attente : %s', __FILE__), count($l), implode(', ', $l)) : ''];
   }
 
   // Lignes de la configuration livrée par Jeedom absentes de celle d'Apache (espaces et commentaires ignorés).
@@ -131,6 +135,13 @@ class secaudit_tests {
     return $l;
   }
 
+  // Conteneurs Docker par port publié (voir conteneurs()), lus une seule fois par audit (static) et partagés par ports_ouverts et mqtt_anonyme.
+  // sudo -n : échoue sans attendre s'il faut un mot de passe (liste vide) ; timeout 10 : un démon Docker bloqué n'arrête pas l'audit
+  private static function docker() {
+    static $d = null;
+    return $d ??= self::conteneurs((string)shell_exec("timeout 10 sudo -n docker ps --format '{{.Names}}|{{.Image}}|{{.Ports}}' 2>/dev/null"));
+  }
+
   // Code HTTP d'une requête sans mot de passe sur 127.0.0.1 ('000' : pas du HTTP, ou pas d'écoute en IPv4). $port vient de ecoutes() : chiffres seulement
   private static function http($port, $chemin = '/') {
     return trim((string)shell_exec('curl -s -o /dev/null --connect-timeout 1 -m 2 -w "%{http_code}" ' . escapeshellarg("http://127.0.0.1:$port$chemin")));
@@ -153,14 +164,12 @@ class secaudit_tests {
 
   public static function test_ports_ouverts() {
     $l = [];
-    $docker = null;
     foreach (self::portsOuverts() as $port => $procs) {
       $t = trim("$port " . implode('/', $procs));
       $chemin = '/';
       $web = false;
       if (in_array('docker-proxy', $procs)) {
-        $docker ??= self::conteneurs((string)shell_exec("timeout 10 sudo -n docker ps --format '{{.Names}}|{{.Image}}|{{.Ports}}' 2>/dev/null"));
-        if ($c = $docker[$port] ?? null) {
+        if ($c = self::docker()[$port] ?? null) {
           $t = sprintf(__('%s conteneur %s (%s)', __FILE__), $port, $c['nom'], $c['image']);
           $web = in_array($c['interne'], self::WEB_INTERNES);
           foreach (self::CHEMINS as $i => $ch) if (strpos($c['image'], $i) !== false) [$chemin, $web] = [$ch, true];
@@ -179,6 +188,62 @@ class secaudit_tests {
     $d = implode(' ; ', $l);
     if ($l && strpos(self::ss(), 'users:(') === false) $d .= ' (' . __('processus invisibles sans sudo : seuls les numéros de « Ports acceptés » comptent', __FILE__) . ')';
     return [count($l) > 0, $d];
+  }
+
+  // Ports du broker MQTT ouverts au réseau, à sonder : [[adresse, port]…].
+  // $ss = sortie de ss -tlnpH (une ligne par port en écoute), $docker = conteneurs() (vide si aucun docker-proxy).
+  // Une ligne est retenue si elle vient d'un processus mosquitto, ou du port 1883 (seul indice quand ss tourne sans sudo
+  // et ne donne pas les processus), ou d'un port publié par un conteneur mosquitto / emqx ou de port interne 1883.
+  // ponytail: sans sudo, ni processus ni docker-proxy dans ss : seul le port 1883 est sondé (un broker sur un autre port passe)
+  // ponytail: 8883 et 8884 supposés TLS, non sondés (un CONNECT en clair laisse une erreur OpenSSL dans le journal du broker) ; websockets (9001…) sondés, sans réponse lisible donc sans constat
+  // ponytail: conteneur Docker sans docker-proxy (userland-proxy false) absent de ss, donc non sondé
+  // ponytail: écoute liée à une interface (0.0.0.0%eth0) non sondée : la connexion locale échoue, il faudrait l'adresse de l'interface
+  public static function ecoutesMqtt($ss, $docker = []) {
+    $l = [];
+    foreach (explode("\n", $ss) as $x) {
+      // $m[1] = adresse locale (0.0.0.0, [::], 192.168.1.5…), $m[2] = port : 1er couple « adresse:port » de la ligne
+      if (!preg_match('/\s(\S+):(\d+)\s/', $x, $m) || in_array($m[2], ['8883', '8884'])) continue;
+      $c = $docker[$m[2]] ?? null;
+      $broker = strpos($x, '"mosquitto"') !== false || $m[2] == '1883' || ($c && (preg_match('/mosquitto|emqx/i', $c['image']) || $c['interne'] == 1883));
+      if (!$broker) continue;
+      $a = trim($m[1], '[]');
+      if (preg_match('/^(127\.|::1$)/', $a)) continue; // écoute locale seulement : injoignable depuis le réseau
+      // Écoute sur toutes les interfaces : on sonde par la boucle locale de la même famille
+      if ($a == '::') $a = '::1'; // [::] (et non *) = IPv6 seul (IPV6_V6ONLY) : ne répond pas sur 127.0.0.1
+      elseif (in_array($a, ['0.0.0.0', '*'])) $a = '127.0.0.1'; // « * » = double pile, joignable en IPv4
+      $l["$a $m[2]"] = [$a, (int)$m[2]]; // clé : une même écoute vue deux fois n'est sondée qu'une fois
+    }
+    return array_values($l);
+  }
+
+  // Code de retour d'un CONNACK MQTT 3.1.1 (octets 0x20 0x02 drapeaux code) : 0 = accepté, autre = refusé (4 / 5 : identifiants) ;
+  // null si la réponse n'en est pas un (port TLS, autre service, silence)
+  public static function connack($r) {
+    return strlen($r) >= 4 && ord($r[0]) == 0x20 && ord($r[1]) == 2 ? ord($r[3]) : null;
+  }
+
+  // Tente une connexion MQTT 3.1.1 sans identifiant ni mot de passe et renvoie le code du CONNACK (voir connack()), null si injoignable.
+  // Paquet CONNECT : 0x10, longueur restante 20, protocole « MQTT » niveau 4, drapeaux 0x02 (clean session, ni nom d'utilisateur ni mot de passe),
+  // keepalive 10 s, client « secaudit ». Accepté → DISCONNECT (0xe0 0x00) pour quitter proprement. Délais de 2 s : l'audit ne bloque pas.
+  private static function mqtt($a, $p) {
+    $s = @stream_socket_client('tcp://' . (strpos($a, ':') !== false ? "[$a]" : $a) . ":$p", $en, $es, 2); // IPv6 entre crochets
+    if (!$s) return null;
+    stream_set_timeout($s, 2);
+    fwrite($s, "\x10\x14\x00\x04MQTT\x04\x02\x00\x0a\x00\x08secaudit");
+    $rc = self::connack((string)stream_get_contents($s, 4)); // lit jusqu'à 4 octets, même s'ils arrivent en plusieurs fois
+    if ($rc === 0) fwrite($s, "\xe0\x00");
+    fclose($s);
+    return $rc;
+  }
+
+  // On demande au broker lui-même au lieu de lire ses fichiers : chercher allow_anonymous true se trompait sur un fichier
+  // non chargé ou sur un listener local seulement (per_listener_settings). Constat si un port accepte la connexion anonyme.
+  // ponytail: sondé depuis la machine, un pare-feu local qui ferme le port au réseau n'est pas vu ; broker en TLS seul non sondé
+  public static function test_mqtt_anonyme() {
+    $docker = strpos(self::ss(), '"docker-proxy"') !== false ? self::docker() : []; // docker ps lancé seulement s'il y a des conteneurs publiés
+    $l = [];
+    foreach (self::ecoutesMqtt(self::ss(), $docker) as [$a, $p]) if (self::mqtt($a, $p) === 0) $l[] = $p;
+    return [(bool)$l, $l ? sprintf(__('connexion sans identifiant acceptée sur le port %s', __FILE__), implode(', ', array_unique($l))) : '']; // unique : 1883 en IPv4 et IPv6
   }
 
   // MariaDB sur toutes les interfaces. Debian 12 : mariadb.socket (activation systemd, ListenStream=3306) ouvre le port lui-même → bind-address ignoré

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.28 (2026-10-24)
+Faux positifs signalés sur le forum :
+- `maj_jeedom` : le constat nomme les mises à jour en attente (« Jeedom » pour le core) ; un plugin à mettre à jour se lisait « Jeedom pas à jour ».
+- `mqtt_anonyme` : le broker est interrogé (connexion MQTT sans identifiant sur ses ports ouverts au réseau) au lieu de chercher `allow_anonymous true` dans les fichiers, qui se trompait sur un fichier non chargé ou un listener local seulement. Le client « secaudit » refusé apparaît donc dans le journal du broker à chaque audit. Ports sondés : processus mosquitto, port 1883, conteneur Docker mosquitto / emqx ou de port interne 1883 ; sans sudo, port 1883 seulement ; 8883 / 8884 (TLS) non sondés.
+
 ## 0.27 (2026-10-23)
 Suite de Jeedom 4.6.2 :
 - `jeedom_4_6_2` : Jeedom antérieur à 4.6.2 signalé (protections PHP contre une faille connue, protections PHP ajoutées à la configuration de sécurité d'Apache).

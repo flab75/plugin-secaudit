@@ -47,6 +47,14 @@ echo "bannissements OK\n";
 $e = secaudit_tests::ecoutes("LISTEN 0 4096 *:3306 *:* users:((\"mariadbd\",pid=816,fd=5),(\"systemd\",pid=1,fd=73))\nLISTEN 0 4096 127.0.0.1:8099 0.0.0.0:* users:((\"docker-proxy\",pid=1,fd=8))\n"
   . "LISTEN 0 100 0.0.0.0:8883 0.0.0.0:* users:((\"mosquitto\",pid=662,fd=6))\nLISTEN 0 100 [::]:8883 [::]:* users:((\"mosquitto\",pid=662,fd=7))\nLISTEN 0 511 *:8091 *:*");
 $ok($e == [3306 => ['mariadbd', 'systemd'], 8883 => ['mosquitto'], 8091 => []], 'lecture de ss');
+$ok(secaudit_tests::ecoutesMqtt("LISTEN 0 100 0.0.0.0:1883 0.0.0.0:* users:((\"mosquitto\",pid=662,fd=5))\nLISTEN 0 100 [::]:1883 [::]:* users:((\"mosquitto\",pid=662,fd=8))\n"
+  . "LISTEN 0 100 127.0.0.1:1884 0.0.0.0:* users:((\"mosquitto\",pid=662,fd=9))\nLISTEN 0 100 192.168.1.5:8883 0.0.0.0:* users:((\"mosquitto\",pid=662,fd=6))\nLISTEN 0 100 192.168.1.5:1885 0.0.0.0:* users:((\"mosquitto\",pid=662,fd=7))\n"
+  . "LISTEN 0 4096 *:3306 *:*\nLISTEN 0 4096 [::1]:1883 [::]:*\nLISTEN 0 4096 0.0.0.0:1890 0.0.0.0:* users:((\"docker-proxy\",pid=9,fd=4))\nLISTEN 0 4096 0.0.0.0:1891 0.0.0.0:* users:((\"docker-proxy\",pid=9,fd=5))\n"
+  . "LISTEN 0 4096 0.0.0.0:8080 0.0.0.0:* users:((\"docker-proxy\",pid=9,fd=6))", [1890 => ['nom' => 'mq', 'image' => 'eclipse-mosquitto:2', 'interne' => 1883],
+    1891 => ['nom' => 'em', 'image' => 'emqx/emqx:5', 'interne' => 1891], 8080 => ['nom' => 'z2m', 'image' => 'koenkk/zigbee2mqtt', 'interne' => 8080]])
+  == [['127.0.0.1', 1883], ['::1', 1883], ['192.168.1.5', 1885], ['127.0.0.1', 1890], ['127.0.0.1', 1891]], 'ports MQTT à sonder');
+$ok(secaudit_tests::ecoutesMqtt("LISTEN 0 100 [::]:1883 [::]:* users:((\"mosquitto\",pid=662,fd=8))") == [['::1', 1883]], 'écoute MQTT IPv6 seule');
+$ok(secaudit_tests::connack("\x20\x02\x00\x00") === 0 && secaudit_tests::connack("\x20\x02\x00\x05") === 5 && secaudit_tests::connack("\x15\x03\x01\x00") === null && secaudit_tests::connack('') === null, 'lecture du CONNACK MQTT');
 $ok(secaudit_tests::conteneurs("signal|bbernhard/signal-cli-rest-api:0.81|0.0.0.0:8099->8080/tcp, :::8099->8080/tcp\nlocal|x|127.0.0.1:9000->9000/tcp\nsans|y|\nplage|z|0.0.0.0:8000-8002->9000-9002/tcp")
   == [8099 => ['nom' => 'signal', 'image' => 'bbernhard/signal-cli-rest-api:0.81', 'interne' => 8080], 9000 => ['nom' => 'local', 'image' => 'x', 'interne' => 9000],
       8000 => ['nom' => 'plage', 'image' => 'z', 'interne' => 9000], 8001 => ['nom' => 'plage', 'image' => 'z', 'interne' => 9001], 8002 => ['nom' => 'plage', 'image' => 'z', 'interne' => 9002]], 'lecture de docker ps');

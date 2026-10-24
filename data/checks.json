@@ -133,7 +133,7 @@
       "resolution": "Le constat nomme l'adresse, ses clients (plugin) et à qui appartient la clé refusée. « clé du compte désactivé » : souvent le démon d'un plugin qui a gardé la clé d'un admin désactivé depuis (Homebridge…). Redémarrer ce démon (page du plugin › Démon) : il régénère sa configuration avec un admin actif. « clé inconnue » : clé régénérée ou application mal configurée, lui redonner une clé valide ; si l'adresse est extérieure, c'est un essai de clés. « clé valide » : l'API est en mode « IP blanche » ou la clé n'a pas ce droit, mettre l'adresse dans la liste blanche. « refus depuis Internet » : des clés sont essayées de l'extérieur (plusieurs adresses ou noms changeants) ; n'ouvrir l'API qu'aux adresses connues (liste blanche) et ne pas la rediriger sur la box. « attribution par adresse non garantie » : beaucoup de refus que le journal ne rattache à aucune adresse, lire le journal api. « adresses falsifiables » : la règle sur les en-têtes X-Forwarded-For est en défaut, les adresses du constat peuvent être fausses."
     },
     {
-      "id": "mqtt_anonyme", "type": "shell", "cmd": "sudo -n grep -rhs allow_anonymous /etc/mosquitto /var/www/html/plugins/mqtt2/data 2>/dev/null", "regex": "/^\\s*allow_anonymous\\s+true/m", "gravite": "haute",
+      "id": "mqtt_anonyme", "type": "builtin", "test": "mqtt_anonyme", "gravite": "haute",
       "titre": "MQTT accepte les connexions anonymes",
       "resolution": "Dans la configuration de mosquitto (ou du plugin MQTT Manager) : `allow_anonymous false` et un fichier de mots de passe. Tout client MQTT anonyme peut piloter les modules Zigbee / Z-Wave."
     },

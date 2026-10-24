@@ -95,7 +95,8 @@
 	"plugins/secaudit/core/class/secaudit_tests.class.php": {
 		"pas de HTTPS local": "no local HTTPS",
 		"expire le %s (%s j)": "expires on %s (%s days)",
-		"%s en attente": "%s pending",
+		"%s en attente : %s": "%s pending: %s",
+		"connexion sans identifiant acceptée sur le port %s": "login without credentials accepted on port %s",
 		"%s fichier(s) : %s": "%s file(s): %s",
 		"security.conf désactivé": "security.conf disabled",
 		"security.conf illisible": "security.conf unreadable",
