@@ -432,4 +432,100 @@ class secaudit_tests {
     if ($apparus) $d[] = sprintf(__('absents quand un robot les a demandés, présents maintenant (porte dérobée ?) : %s', __FILE__), implode(', ', $apparus));
     return [(bool)($servis || $apparus), $d ? implode(' — ', $d) : sprintf(__('%s chemins visés retenus, %s présents ici, aucun servi, aucun script apparu', __FILE__), count($appris), $presents)];
   }
+
+  // Configuration Apache active : les fichiers qu'inclut apache2.conf de Debian (mods-enabled/*.conf, conf-enabled/*.conf, sites-enabled/*.conf)
+  // ponytail: la portée (vhost, bloc <If>) n'est pas lue : une ligne dans un vhost qui ne sert pas compte quand même (limite écrite dans la doc).
+  // Un faux en-tête envoyé depuis la box ne suivrait pas le chemin d'Internet : seul le diagnostic de la page, depuis l'extérieur, le vérifie.
+  private static function apacheConf() {
+    static $c;
+    if ($c === null) {
+      $c = '';
+      foreach (['mods', 'conf', 'sites'] as $d) foreach (glob("/etc/apache2/$d-enabled/*.conf") ?: [] as $f) $c .= @file_get_contents($f) . "\n";
+    }
+    return $c;
+  }
+
+  // En-têtes que getClientIp() de Jeedom croit, lus par Apache : X-Forwarded-For doit être réécrit (ou retiré), les trois autres retirés.
+  // Lecture de getClientIp() (core/php/utils.inc.php) : CF-Connecting-IP, puis X-Real-IP, puis X-Forwarded-For (1re adresse), puis Client-IP, puis l'adresse de la connexion.
+  // $remoteip = en-tête lu par remoteip actif avec un proxy déclaré ('' sinon) : rien ne doit alors agir avant lui (early),
+  // sinon tous les visiteurs prennent l'adresse du proxy. Sans proxy déclaré, early ne change rien (l'adresse est celle de la connexion).
+  // ponytail: une condition en fin de ligne (env=, expr=) n'est pas reconnue : ligne comptée absente, faux positif dans le sens prudent.
+  public static function entetes($conf, $remoteip = '') {
+    $conf = preg_replace('/^\s*#.*$/m', '', $conf);
+    $l = [];
+    $set = preg_match_all('/^\s*RequestHeader\s+set\s+X-Forwarded-For\s+["\']?expr=%\{REMOTE_ADDR\}["\']?(\s+early)?\s*$/mi', $conf, $m) ? array_map('trim', $m[1]) : [];
+    $unset = fn($h) => preg_match_all('/^\s*RequestHeader\s+unset\s+' . preg_quote($h, '/') . '(\s+early)?\s*$/mi', $conf, $u) ? (in_array('early', array_map(fn($e) => strtolower(trim($e)), $u[1]), true) ? 'early' : 'ok') : '';
+    if ($set && $remoteip !== '' && array_filter($set)) $l[] = __('X-Forwarded-For réécrit avec early (avant remoteip) : tous les visiteurs ont l\'adresse du proxy', __FILE__);
+    if (!$set && $unset('X-Forwarded-For') === '') $l[] = __('X-Forwarded-For lu tel quel', __FILE__);
+    if ($remoteip !== '' && $unset($remoteip) === 'early') $l[] = sprintf(__('%s retiré avant remoteip : tous les visiteurs ont l\'adresse du proxy', __FILE__), $remoteip);
+    foreach (['X-Real-IP', 'CF-Connecting-IP', 'Client-IP'] as $h) if ($unset($h) === '') $l[] = sprintf(__('%s non retiré', __FILE__), $h);
+    return $l;
+  }
+
+  // remoteip : en-tête lu (RemoteIPHeader, '' si absent) et proxys déclarés (adresses des RemoteIPInternalProxy / RemoteIPTrustedProxy, fichiers des …List)
+  public static function remoteipConf($conf) {
+    $conf = preg_replace('/^\s*#.*$/m', '', $conf);
+    preg_match_all('/^\s*RemoteIP(?:Internal|Trusted)Proxy(?:List)?\s+(.+?)\s*$/mi', $conf, $m);
+    // Apache applique la dernière ligne RemoteIPHeader
+    return ['entete' => preg_match_all('/^\s*RemoteIPHeader\s+(\S+)/mi', $conf, $e) ? end($e[1]) : '', 'proxys' => $m[1]];
+  }
+
+  private static function remoteip() {
+    return file_exists('/etc/apache2/mods-enabled/remoteip.load') ? self::remoteipConf(self::apacheConf()) : ['entete' => '', 'proxys' => []];
+  }
+
+  public static function test_entetes_ip() {
+    $r = self::remoteip();
+    $l = self::entetes(self::apacheConf(), $r['proxys'] ? $r['entete'] : '');
+    if (!file_exists('/etc/apache2/mods-enabled/headers.load')) array_unshift($l, __('module headers inactif : aucune ligne RequestHeader ne s\'applique', __FILE__));
+    return [count($l) > 0, implode(' ; ', $l)];
+  }
+
+  public static function test_remoteip() {
+    $r = self::remoteip();
+    $ko = $r['entete'] !== '' && !$r['proxys'];
+    return [$ko, $ko ? sprintf(__('RemoteIPHeader %s sans aucun proxy déclaré : remoteip croit l\'adresse envoyée par n\'importe quel client', __FILE__), $r['entete']) : ''];
+  }
+
+  // Conseil (info) : un proxy est déclaré, secaudit ne voit pas s'il existe encore ni s'il nettoie les en-têtes
+  public static function test_proxy_amont() {
+    $r = self::remoteip();
+    $ko = $r['entete'] !== '' && (bool)$r['proxys'];
+    return [$ko, $ko ? $r['entete'] . ' : ' . implode(', ', $r['proxys']) : ''];
+  }
+
+  // Adresse de connexion réelle de la requête en cours, avant remoteip (le proxy, ou le client en accès direct) :
+  // sous mod_php, la page tourne dans le processus Apache qui tient la connexion. Dans « ss -tnpH » ($ss), la connexion établie de ce processus Apache ($pid)
+  // dont le port local est un port à l'écoute (« ss -tlnH », $ecoute) : entrante, pas une connexion sortante du PHP (MariaDB…) ; un worker php-fpm (FastCGI d'Apache) est écarté.
+  // null si introuvable (php-fpm, sudo refusé à www-data, ou ss absent : les enfants Apache, non « dumpable » après setuid, ne montrent pas leur pid à www-data sans sudo).
+  public static function connexion($ss, $ecoute, $pid) {
+    $port = fn($a) => substr($a, strrpos($a, ':') + 1);
+    $ports = [];
+    foreach (explode("\n", $ecoute) as $x) { $t = preg_split('/\s+/', trim($x)); if (count($t) >= 4) $ports[$port($t[3])] = 1; }
+    foreach (explode("\n", $ss) as $x) {
+      $t = preg_split('/\s+/', trim($x));
+      if (count($t) < 6 || $t[0] != 'ESTAB' || !isset($ports[$port($t[3])]) || !preg_match('/\("(apache2|httpd)",pid=' . (int)$pid . ',/', $x)) continue;
+      $a = preg_replace('/^\[?([^\]%]*)\]?(%.*)?$/', '$1', substr($t[4], 0, strrpos($t[4], ':'))); // [fe80::2]%eth0 → fe80::2
+      return preg_replace('/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/i', '', $a);
+    }
+    return null;
+  }
+
+  // Bloc « Diagnostic de l'adresse » de la page : ce qu'Apache et Jeedom voient de la requête en cours.
+  // connexion : adresse réelle de la connexion, avant remoteip (null = inconnue) ; seule celle de cette requête est affichée, pas les autres visiteurs
+  // blanche : adresse retenue par Jeedom dans security::whiteips, lue comme user::isBan (netMatch, une entrée illisible est sautée)
+  public static function adresse() {
+    $h = [];
+    foreach (['HTTP_X_FORWARDED_FOR' => 'X-Forwarded-For', 'HTTP_X_REAL_IP' => 'X-Real-IP', 'HTTP_CF_CONNECTING_IP' => 'CF-Connecting-IP', 'HTTP_CLIENT_IP' => 'Client-IP',
+              'HTTP_FORWARDED' => 'Forwarded', 'HTTP_TRUE_CLIENT_IP' => 'True-Client-IP', 'HTTP_X_CLIENT_IP' => 'X-Client-IP', 'HTTP_X_CLUSTER_CLIENT_IP' => 'X-Cluster-Client-IP'] as $k => $n)
+      if (isset($_SERVER[$k])) $h[] = "$n : " . $_SERVER[$k];
+    $apache = $_SERVER['REMOTE_ADDR'] ?? '';
+    $jeedom = getClientIp();
+    $blanche = false;
+    foreach (explode(';', (string)config::byKey('security::whiteips')) as $e) {
+      try { if (trim($e) !== '' && netMatch($e, $jeedom)) { $blanche = true; break; } } catch (Throwable $t) {}
+    }
+    return ['connexion' => self::connexion((string)shell_exec('sudo -n ss -tnpH 2>/dev/null || ss -tnpH 2>/dev/null'), (string)shell_exec('ss -tlnH 2>/dev/null'), getmypid()),
+            'apache' => $apache, 'jeedom' => $jeedom, 'blanche' => $blanche, 'entetes' => $h];
+  }
 }

@@ -37,8 +37,8 @@ $ok(!isset($c['y']) && is_string($c['api_tts']['titre']), 'champ distant non tex
 $ok(isset($c['nouveau']) && !isset($c['nouveau']['fix']), 'ajout distant incorrect');
 echo "garde-fou OK\n";
 
-$x = secaudit_bans::lireBanip("94.127.15.189 \t2026-10-14 08:00:00 + 28800 = 2026-10-14 16:00:00");
-$ok($x == ['ip' => '94.127.15.189', 'debut' => '2026-10-14 08:00:00', 'fin' => '2026-10-14 16:00:00'], 'lecture banip');
+$x = secaudit_bans::lireBanip("203.0.113.42 \t2026-10-14 08:00:00 + 28800 = 2026-10-14 16:00:00");
+$ok($x == ['ip' => '203.0.113.42', 'debut' => '2026-10-14 08:00:00', 'fin' => '2026-10-14 16:00:00'], 'lecture banip');
 $ok(secaudit_bans::lireBanip('Status for the jail') === null, 'ligne parasite lue comme ban');
 $e = null; try { secaudit_bans::debannir('fail2ban', 'sshd', '1.2.3.4; reboot'); } catch (Exception $e) {}
 $ok($e !== null, 'IP non validée');
@@ -66,6 +66,31 @@ $ok(secaudit_tests::lignesManquantes("ServerTokens Prod\n# x\n<Directory /var/ww
   == ['Options -Indexes', '<IfModule a>', '</IfModule>'], 'lignes manquantes de security.conf');
 $ok(secaudit_tests::lignesManquantes("a\n# b\n", " a \n") == [], 'security.conf identique');
 $ok(secaudit_tests::lignesManquantes("<IfModule a>\nphp x\n</IfModule>\n<IfModule b>\nphp x\n</IfModule>", "<IfModule a>\n</IfModule>\n<IfModule b>\nphp x\n</IfModule>") == ['php x'], 'ligne répétée retirée d\'un seul bloc');
+$ligne = "RequestHeader set X-Forwarded-For \"expr=%{REMOTE_ADDR}\"\nRequestHeader unset X-Real-IP\nRequestHeader unset CF-Connecting-IP\nRequestHeader unset Client-IP\n";
+$ancien = "RequestHeader unset X-Forwarded-For early\nRequestHeader unset X-Real-IP early\nRequestHeader unset CF-Connecting-IP early\nRequestHeader unset Client-IP early\n";
+$ok(secaudit_tests::entetes($ligne) == [] && secaudit_tests::entetes($ligne, 'X-Forwarded-For') == [], 'en-têtes : correction 0.29 refusée');
+$ok(secaudit_tests::entetes($ancien) == [] && count(secaudit_tests::entetes($ancien, 'X-Forwarded-For')) == 1, 'en-têtes : ancienne correction (early) mal lue avec ou sans proxy déclaré');
+$ok(count(secaudit_tests::entetes($ligne . "RequestHeader unset X-Forwarded-For early\n", 'X-Forwarded-For')) == 1, 'en-têtes : unset early masqué par la réécriture');
+$ok(count(secaudit_tests::entetes($ancien, 'CF-Connecting-IP')) == 1 && secaudit_tests::entetes($ligne . "RequestHeader unset X-Forwarded-For early\n", 'CF-Connecting-IP') == [], 'en-têtes : en-tête de remoteip autre que X-Forwarded-For');
+$ok(count(secaudit_tests::entetes('')) == 4 && count(secaudit_tests::entetes("<IfModule mod_headers.c>\n  RequestHeader set X-Forwarded-For \"expr=%{REMOTE_ADDR}\"\n</IfModule>")) == 3, 'en-têtes : manques non comptés');
+$early = str_replace('REMOTE_ADDR}"', 'REMOTE_ADDR}" early', $ligne);
+$ok(secaudit_tests::entetes($early) == [] && count(secaudit_tests::entetes($early, 'X-Forwarded-For')) == 1 && count(secaudit_tests::entetes($early, 'X-Real-IP')) == 1, 'en-têtes : réécriture early mal jugée');
+$ok(secaudit_tests::entetes(str_replace('"', "'", $ligne)) == [], 'en-têtes : guillemets simples refusés');
+$ok(count(secaudit_tests::entetes('#' . str_replace("\n", "\n#", $ligne))) == 4 && count(secaudit_tests::entetes(str_replace('unset X-Real-IP', 'unset X-Real-IPv6', $ligne))) == 1, 'en-têtes : ligne commentée ou autre en-tête accepté');
+$ok(secaudit_tests::remoteipConf("<IfModule mod_remoteip.c>\n  RemoteIPHeader X-Forwarded-For\n</IfModule>") == ['entete' => 'X-Forwarded-For', 'proxys' => []], 'remoteip sans proxy');
+$ok(secaudit_tests::remoteipConf("RemoteIPHeader CF-Connecting-IP\n  RemoteIPInternalProxy 192.168.1.10\n# RemoteIPTrustedProxy 203.0.113.1\nRemoteIPTrustedProxyList conf/proxys.txt") == ['entete' => 'CF-Connecting-IP', 'proxys' => ['192.168.1.10', 'conf/proxys.txt']], 'remoteip : proxys déclarés');
+$ok(secaudit_tests::remoteipConf("# RemoteIPHeader X-Forwarded-For") == ['entete' => '', 'proxys' => []], 'remoteip commenté');
+$ss = "ESTAB 0 0 [::ffff:192.168.1.202]:443 [::ffff:203.0.113.7]:65175 users:((\"apache2\",pid=1234,fd=9))\n"
+  . "ESTAB 0 0 127.0.0.1:41000 127.0.0.1:3306 users:((\"apache2\",pid=123,fd=10))\n"
+  . "ESTAB 0 0 [::ffff:127.0.0.1]:80 [::ffff:127.0.0.1]:50256 users:((\"apache2\",pid=123,fd=9))\n"
+  . "ESTAB 0 0 192.168.1.202:443 203.0.113.8:5000 users:((\"nginx\",pid=12,fd=4))\n"
+  . "ESTAB 0 0 127.0.0.1:9000 127.0.0.1:40000 users:((\"php-fpm8.2\",pid=77,fd=5))\n"
+  . "ESTAB 0 0 [fe80::1]%eth0:443 [fe80::2]%eth0:5000 users:((\"httpd\",pid=5,fd=4),(\"httpd\",pid=6,fd=4))";
+$ecoute = "LISTEN 0 511 *:80 *:*\nLISTEN 0 511 *:443 *:*\nLISTEN 0 80 127.0.0.1:3306 0.0.0.0:*\nLISTEN 0 511 127.0.0.1:9000 0.0.0.0:*";
+$ok(secaudit_tests::connexion($ss, $ecoute, 1234) === '203.0.113.7' && secaudit_tests::connexion($ss, $ecoute, 123) === '127.0.0.1'
+  && secaudit_tests::connexion($ss, $ecoute, 12) === null && secaudit_tests::connexion($ss, $ecoute, 77) === null
+  && secaudit_tests::connexion($ss, $ecoute, 6) === 'fe80::2' && secaudit_tests::connexion($ss, $ecoute, 1) === null && secaudit_tests::connexion('', '', 1234) === null, 'adresse de connexion de la requête');
+$ok(secaudit_tests::remoteipConf("RemoteIPHeader X-Forwarded-For\nRemoteIPHeader CF-Connecting-IP")['entete'] == 'CF-Connecting-IP', 'remoteip : dernière ligne RemoteIPHeader');
 $q = fn($p, $id, $ip = '192.168.1.202') => "[2026-10-15 10:51:$id][INFO] { &quot;jsonrpc&quot;: &quot;2.0&quot;, &quot;id&quot;:$id, &quot;method&quot;: &quot;daemonIsReady&quot;, &quot;params&quot;:{ &quot;plugin&quot;: &quot;$p&quot;, &quot;apikey&quot;: &quot;k$p&quot;}} - IP :$ip";
 $r = "[2026-10-15 10:51:%s][INFO] Error code 2 : Vous n&apos;êtes pas autorisé à effectuer cette action";
 $rq = secaudit_tests::requetesApi(implode("\n", [$q('homebridge', 20), sprintf($r, 21), $q('z2m', 23), $q('homebridge', 24), sprintf($r, 25), $q('<b>', 26), sprintf($r, 27), $q('z2m', 28), sprintf($r, 29), $q('z2m', 30)]));
@@ -99,7 +124,7 @@ $ok($c['externes'] == ['203.0.113.9' => 1] && $c['total'] == 2, 'Tailscale (100.
 echo "lecture des services OK\n";
 $e = secaudit_journal::lireEssai("[Tue Oct 14 08:04:12.123 2026] [access_compat:error] [pid 1:tid 1] [client 87.58.199.133:5555] AH01797: client denied by server configuration: /var/www/html/.env.json");
 $ok($e && $e['ip'] == '87.58.199.133' && $e['chemin'] == '/.env.json' && !$e['absent'] && date('Y-m-d H:i', $e['t']) == '2026-10-14 08:04', 'lecture refus');
-$e = secaudit_journal::lireEssai("[Tue Oct 13 12:13:23.634602 2026] [php:error] [pid 1:tid 1] [client 94.127.15.189:62434] script '/var/www/html/core/ajax/planHeader.ajax.php' not found or unable to stat, referer: x");
+$e = secaudit_journal::lireEssai("[Tue Oct 13 12:13:23.634602 2026] [php:error] [pid 1:tid 1] [client 203.0.113.42:62434] script '/var/www/html/core/ajax/planHeader.ajax.php' not found or unable to stat, referer: x");
 $ok($e && $e['chemin'] == '/core/ajax/planHeader.ajax.php' && $e['absent'] && secaudit_journal::famille($e['chemin']) == 'jeedom', 'lecture script absent');
 $ok(secaudit_journal::lireEssai('[Tue Oct 13 11:21:09.5 2026] [php:warn] [client 1.2.3.4:1] PHP Warning: x') === null, 'avertissement PHP lu comme essai');
 $ok(secaudit_journal::lireEssai("[Tue Oct 13 11:21:09.5 2026] [php:warn] [pid 1] [client 6.6.6.6:1] PHP Warning: x, referer: [client 192.168.1.20:1] script '/var/www/html/core/ajax/x.ajax.php'") === null, 'essai fabriqué par le referer');

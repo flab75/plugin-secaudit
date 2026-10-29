@@ -64,6 +64,27 @@ $etat = ['probleme' => '<i class="fas fa-times-circle" style="color:#d9534f"></i
     </table>
     <?php } ?>
 
+    <?php // Ce qu'Apache et Jeedom voient de cette requête : seul un test depuis l'extérieur départage accès direct, proxy et NAT
+    $a = secaudit_tests::adresse(); $h = 'htmlspecialchars'; ?>
+    <details id="secauditAdresse"><summary>{{Diagnostic de l'adresse (accès direct, proxy ou NAT ?)}}</summary>
+      <p>{{Ouvrez cette page depuis un téléphone en 4G (sans Wi-Fi ni VPN ; si Jeedom n'est joignable que par un VPN, par le VPN), par chaque adresse d'accès utilisée (ddns, DNS Jeedom, Cloudflare…), et comparez avec l'IP publique du téléphone (site « quelle est mon IP », même téléphone, même famille IPv4 ou IPv6 ; par un VPN, comparez plutôt avec l'adresse VPN du téléphone, affichée dans l'appli VPN). Une IP mobile peut changer d'une requête à l'autre : en cas d'écart, rechargez la page.}}</p>
+      <ul>
+        <li>{{Adresse de connexion (avant remoteip)}} : <code><?php echo $a['connexion'] === null ? '{{inconnue}}' : $h($a['connexion']); ?></code></li>
+        <li>{{Adresse vue par Apache}} : <code><?php echo $h($a['apache']); ?></code></li>
+        <li>{{Adresse retenue par Jeedom (bannissement, liste blanche, API)}} : <code><?php echo $h($a['jeedom']); ?></code></li>
+        <li>{{Adresse retenue en liste blanche (jamais bannie)}} : <code><?php echo $a['blanche'] ? '{{oui}}' : '{{non}}'; ?></code></li>
+        <li>{{En-têtes d'adresse reçus par Jeedom}} : <code><?php echo $h(implode(' ; ', $a['entetes']) ?: '{{aucun}}'); ?></code></li>
+      </ul>
+      <p>{{Lecture}} :</p>
+      <ul>
+        <li>{{Adresse de connexion = IP du téléphone : accès direct.}}</li>
+        <li>{{Adresse de connexion différente, et IP du téléphone dans l'adresse vue par Apache ou dans un en-tête reçu : un proxy est sur le chemin, à l'adresse de connexion (127.0.0.1 pour un nginx ou un tunnel sur la machine Jeedom, DNS Jeedom, Tailscale, Cloudflare…), même sans en avoir installé. C'est cette adresse qu'il faut déclarer dans remoteip (Cloudflare : ses plages, voir la résolution).}}</li>
+        <li>{{IP du téléphone nulle part (ni adresse ni en-tête affichés) : NAT (passerelle de VM, Docker, routeur) ou proxy qui ne transmet pas l'adresse. Ne rien déclarer dans remoteip. Apache ne connaît pas la vraie adresse des visiteurs. Adresse retenue par Jeedom = 127.0.0.1 ou celle de la machine Jeedom : tunnel ou proxy local, à faire transmettre l'adresse ; ne jamais la retirer de la liste blanche.}}</li>
+        <li>{{Adresse de connexion inconnue (PHP hors module Apache, sudo refusé à www-data, ou ss absent) : si l'IP du téléphone n'apparaît nulle part, c'est le cas précédent ; sinon ne rien désactiver ni déclarer avant d'avoir relevé l'adresse de connexion, en SSH (sudo ss -tnp state established juste après avoir rechargé la page, plusieurs fois, seulement les lignes de apache2 ou httpd sur un port d'écoute d'Apache). Avant, fermer les autres applis et les autres onglets qui joignent Jeedom et attendre 10 s après un test par une autre adresse d'accès. IP du téléphone seulement dans un en-tête : proxy, quoi que montre ss. Sinon, accès direct seulement si l'IP du téléphone est, à chaque relevé, la seule adresse ; une ligne 127.0.0.1 ou ::1 indique un proxy local probable, à confirmer par sa configuration. Une autre adresse peut être celle d'un autre visiteur : ne la déclarer que si la configuration du proxy la confirme. Dans le doute, ne rien déclarer.}}</li>
+        <li>{{Une fois les règles corrigées, l'adresse retenue par Jeedom doit être l'IP du téléphone (en NAT : la même qu'avant, celle de la passerelle).}}</li>
+      </ul>
+    </details>
+
     <h3>{{Tentatives d'intrusion et bannissements}}</h3>
     <?php $h = 'htmlspecialchars';
     try { $b = secaudit_tentatives::analyser(); }

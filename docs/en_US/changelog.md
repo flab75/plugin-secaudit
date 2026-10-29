@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.29 (2026-10-28)
+IP address headers, after an exchange on the forum. Resolutions must be safe whatever the architecture (direct access, proxy, NAT):
+- `entetes_ip`: configuration read the way Apache includes it (`*.conf` of mods-, conf- and sites-enabled); with a declared proxy, `set X-Forwarded-For … early` and `unset … early` of the header remoteip reads (last `RemoteIPHeader` line) are reported; without a declared proxy, `early` is accepted. The fix becomes `RequestHeader set X-Forwarded-For "expr=%{REMOTE_ADDR}"` (copies the address kept by Apache, after remoteip) plus `RequestHeader unset` of X-Real-IP, CF-Connecting-IP and Client-IP, without `early`. The former fix (`unset … early`) is still accepted without remoteip; with remoteip and a declared proxy, it is reported (every visitor would get the proxy address). The resolution first points to the address diagnostic, then to the fix for the case found.
+- Jeedom reads the client IP two ways: `getClientIp()`, used for banning, whitelist and APIs, reads CF-Connecting-IP and X-Real-IP before X-Forwarded-For. All three headers are therefore checked.
+- `remoteip` becomes high severity: `RemoteIPHeader` without any declared proxy makes remoteip believe the address sent by any client.
+- New info rule `proxy_amont`: declared proxy, to check from outside.
+- Plugin page: "Address diagnosis" block (real connection address before remoteip, read from the page's Apache process; address seen by Apache; address retained by Jeedom; whitelisted yes / no; headers received), to open from a phone on 4G through every access address. A proxy is only declared if the phone's IP appears in the address seen by Apache or a header, and the connection address is what gets declared; otherwise it is NAT, nothing to declare, and the resolution explains how to narrow the whitelist without losing access.
+- Diagnosis: Forwarded, True-Client-IP, X-Client-IP and X-Cluster-Client-IP headers shown; unknown connection (php-fpm, sudo refused): guided `ss` reading; proxies to declare in the global remoteip.conf.
+- remoteip resolutions: file to edit (Jeedom's `conf-enabled/remoteip.conf`), backup, `configtest` before reload, rollback; Cloudflare through `RemoteIPTrustedProxyList`.
+- Resolutions reviewed for architecture: APIs (address filter), wide whitelist, fail2ban (`ignoreip` behind a proxy), MySQL, API refusals, MQTT, box ports, Z-Wave JS UI, external HTTPS, certificate, SSH root.
+
 ## 0.28 (2026-10-24)
 False positives reported on the forum:
 - `maj_jeedom`: the finding names the pending updates ("Jeedom" for the core); a plugin update read as "Jeedom not up to date".

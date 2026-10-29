@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.29 (2026-10-28)
+En-têtes d'adresse IP, après un échange sur le forum. Les résolutions doivent être sûres quelle que soit l'architecture (accès direct, proxy, NAT) :
+- `entetes_ip` : configuration lue comme Apache l'inclut (`*.conf` de mods-, conf- et sites-enabled) ; avec un proxy déclaré, `set X-Forwarded-For … early` et `unset … early` de l'en-tête lu par remoteip (dernière ligne `RemoteIPHeader`) sont signalés ; sans proxy déclaré, `early` est accepté. La correction devient `RequestHeader set X-Forwarded-For "expr=%{REMOTE_ADDR}"` (recopie l'adresse retenue par Apache, après remoteip) plus `RequestHeader unset` de X-Real-IP, CF-Connecting-IP et Client-IP, sans `early`. L'ancienne correction (`unset … early`) reste acceptée sans remoteip ; avec remoteip et un proxy déclaré, elle est signalée (tous les visiteurs prendraient l'adresse du proxy). La résolution renvoie d'abord au diagnostic de l'adresse, puis à la correction du cas trouvé.
+- Jeedom lit l'IP client de deux façons : `getClientIp()`, celle du bannissement, de la liste blanche et des API, lit CF-Connecting-IP et X-Real-IP avant X-Forwarded-For. Les trois en-têtes sont donc contrôlés.
+- `remoteip` passe en gravité haute : `RemoteIPHeader` sans aucun proxy déclaré fait croire à remoteip l'adresse envoyée par n'importe quel client.
+- Nouvelle règle info `proxy_amont` : proxy déclaré, à vérifier depuis l'extérieur.
+- Page du plugin : bloc « Diagnostic de l'adresse » (adresse de connexion réelle avant remoteip, lue par le processus Apache de la page ; adresse vue par Apache ; adresse retenue par Jeedom ; en liste blanche oui / non ; en-têtes reçus), à ouvrir depuis un téléphone en 4G par chaque adresse d'accès. Un proxy n'est déclaré que si l'IP du téléphone apparaît dans l'adresse vue par Apache ou un en-tête, et c'est l'adresse de connexion qui est déclarée ; sinon c'est un NAT, rien à déclarer, et la résolution explique comment resserrer la liste blanche sans perdre l'accès.
+- Diagnostic : en-têtes Forwarded, True-Client-IP, X-Client-IP et X-Cluster-Client-IP affichés ; connexion inconnue (php-fpm, sudo refusé) : relevé `ss` guidé ; proxys à déclarer dans le remoteip.conf global.
+- Résolutions remoteip : fichier à modifier (`conf-enabled/remoteip.conf` de Jeedom), sauvegarde, `configtest` avant reload, retour arrière ; Cloudflare par `RemoteIPTrustedProxyList`.
+- Résolutions relues pour l'architecture : API (filtre par adresse), liste blanche large, fail2ban (`ignoreip` derrière un proxy), MySQL, refus API, MQTT, ports de la box, Z-Wave JS UI, HTTPS externe, certificat, SSH root.
+
 ## 0.28 (2026-10-24)
 Faux positifs signalés sur le forum :
 - `maj_jeedom` : le constat nomme les mises à jour en attente (« Jeedom » pour le core) ; un plugin à mettre à jour se lisait « Jeedom pas à jour ».
